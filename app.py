@@ -1,3 +1,4 @@
+
 from streamlit_autorefresh import st_autorefresh
 import streamlit as st
 import yfinance as yf
@@ -229,13 +230,7 @@ def analyze_stock(ticker):
 
     data.dropna(inplace=True)
 
-    close = data["Close"]
-
-    # FORCE 1D (important fix for Render)
-    if isinstance(close, pd.DataFrame):
-        close = close.iloc[:, 0]
-
-    close = pd.Series(close.values.flatten(), index=data.index)
+    close = data["Close"].astype(float)
 
     # Indicators
     data["SMA_10"] = ta.trend.sma_indicator(
@@ -398,9 +393,6 @@ investment = st.number_input(
 )
 
 stock_data = results[selected_stock]
-if selected_stock not in results:
-    st.error("Stock data not ready")
-    st.stop()
 
 current_price = stock_data["current_price"]
 future_price = stock_data["future_price"]
@@ -578,3 +570,4 @@ if user in portfolio and len(portfolio[user]) > 0:
 
 else:
     st.info("No stocks purchased yet")
+
