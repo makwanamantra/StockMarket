@@ -97,7 +97,7 @@ if "username" not in st.session_state:
 st.title(" AI Stock Advisor Pro")
 # Refresh every 10 seconds
 st_autorefresh(
-    interval=10 * 1000,
+    interval= 5*60* 1000,
     key="stock_refresh"
 )
 
@@ -392,6 +392,10 @@ investment = st.number_input(
     value=1000
 )
 
+if selected_stock not in results:
+    st.error("Stock data not available")
+    st.stop()
+
 stock_data = results[selected_stock]
 
 current_price = stock_data["current_price"]
@@ -505,13 +509,20 @@ if user in portfolio and len(portfolio[user]) > 0:
 
         latest_data = yf.download(
             ticker,
-            period="1d",
+            period="5d",
+            interval="1d",
             progress=False
         )
+    
+        if latest_data.empty or "Close" not in latest_data.columns:
+            continue  # skip this stock safely
 
-        latest_price = float(
-            latest_data["Close"].iloc[-1]
-        )
+        close_series = latest_data["Close"].dropna()
+
+        if close_series.empty:
+            continue
+
+        latest_price = float(close_series.iloc[-1])
 
         current_value = (
             latest_price * item["shares"]
