@@ -337,11 +337,14 @@ if user in portfolio and portfolio[user]:
                 # ✅ Always extract scalar safely
                 latest_price = float(intraday_data["Close"].dropna().values[-1])
             else:
-                latest_price = float(item["buy_price"])  # fallback
+                # ✅ Fallback to predicted price if live data missing
+                latest_price = float(item["predicted_price"])
 
         except Exception:
-            latest_price = float(item["buy_price"])  # safe fallback
+            # ✅ Safe fallback if error occurs
+            latest_price = float(item["predicted_price"])
 
+        # Calculate values
         current_value = latest_price * item["shares"]
         profit_loss = current_value - item["investment"]
         total_profit += profit_loss
@@ -361,7 +364,7 @@ if user in portfolio and portfolio[user]:
         df = pd.DataFrame(portfolio_data)
         st.dataframe(df, use_container_width=True)
 
-        # ✅ Show total portfolio profit/loss
+        # ✅ Show total portfolio profit/loss summary
         if total_profit > 0:
             st.success(f"Total Portfolio Profit: ${total_profit:.2f}")
         elif total_profit < 0:
