@@ -25,32 +25,22 @@ st.set_page_config(page_title="AI Stock Advisor Pro", layout="wide")
 USER_FILE = "users.json"
 PORTFOLIO_FILE = "portfolio.json"
 
-if not os.path.exists(USER_FILE):
-    with open(USER_FILE, "w") as f:
-        json.dump({}, f)
+def safe_load_json(file):
+    try:
+        if not os.path.exists(file):
+            with open(file, "w") as f:
+                json.dump({}, f)
+        with open(file, "r") as f:
+            return json.load(f)
+    except Exception:
+        return {}
 
-if not os.path.exists(PORTFOLIO_FILE):
-    with open(PORTFOLIO_FILE, "w") as f:
-        json.dump({}, f)
-
-# ============================================
-# LOAD/SAVE
-# ============================================
-def load_users():
-    with open(USER_FILE, "r") as f:
-        return json.load(f)
-
-def save_users(data):
-    with open(USER_FILE, "w") as f:
-        json.dump(data, f)
-
-def load_portfolio():
-    with open(PORTFOLIO_FILE, "r") as f:
-        return json.load(f)
-
-def save_portfolio(data):
-    with open(PORTFOLIO_FILE, "w") as f:
-        json.dump(data, f)
+def save_json(file, data):
+    try:
+        with open(file, "w") as f:
+            json.dump(data, f)
+    except Exception as e:
+        st.error(f"Error saving {file}: {e}")
 
 # ============================================
 # AUTH
@@ -73,7 +63,6 @@ if "username" not in st.session_state:
 # UI
 # ============================================
 st.title("AI Stock Advisor Pro")
-
 st_autorefresh(interval=10 * 1000, key="stock_refresh")
 
 # ============================================
@@ -81,7 +70,7 @@ st_autorefresh(interval=10 * 1000, key="stock_refresh")
 # ============================================
 if not st.session_state.logged_in:
     mode = st.sidebar.radio("Choose", ["Login", "Signup"])
-    users = load_users()
+    users = safe_load_json(USER_FILE)
 
     username = st.sidebar.text_input("Username")
     password = st.sidebar.text_input("Password", type="password")
@@ -94,7 +83,7 @@ if not st.session_state.logged_in:
                 st.sidebar.error("Password too short")
             else:
                 users[username] = {"password": hash_password(password)}
-                save_users(users)
+                save_json(USER_FILE, users)
                 st.sidebar.success("Account created")
 
     else:
@@ -102,18 +91,17 @@ if not st.session_state.logged_in:
             if username in users and verify_password(password, users[username]["password"]):
                 st.session_state.logged_in = True
                 st.session_state.username = username
-                st.rerun()
+                st.experimental_rerun()
             else:
                 st.sidebar.error("Invalid login")
 
     st.stop()
 
 st.sidebar.success(f"Logged in as {st.session_state.username}")
-
 if st.sidebar.button("Logout"):
     st.session_state.logged_in = False
     st.session_state.username = ""
-    st.rerun()
+    st.experimental_rerun()
 
 # ============================================
 # STOCKS
@@ -129,16 +117,15 @@ stocks = {
 }
 
 # ============================================
-# SAFE STOCK ANALYSIS
-# ============================================
-# ============================================
-# SAFE STOCK ANALYSIS (5y + live today)
+# STOCK ANALYSIS
 # ============================================
 @st.cache_data(show_spinner=False)
 def analyze_stock(ticker):
-
-    # 5 years of daily history for training
-    daily_data = yf.download(ticker, period="5y", interval="1d", auto_adjust=True, progress=False)
+    try:
+        daily_data = yf.download(ticker, period="5y", interval="1d", auto_adjust=True, progress=False)
+    except Exception as e:
+        st.warning(f"Error fetching {ticker}: {e}")
+        return None
 
     if daily_data is None or daily_data.empty:
         return None
@@ -147,7 +134,6 @@ def analyze_stock(ticker):
         daily_data.columns = daily_data.columns.get_level_values(0)
 
     daily_data = daily_data.dropna()
-
     if "Close" not in daily_data.columns:
         return None
 
@@ -158,14 +144,12 @@ def analyze_stock(ticker):
     daily_data["SMA_50"] = ta.trend.sma_indicator(close, window=50)
     daily_data["RSI"] = ta.momentum.rsi(close, window=14)
     daily_data["MACD"] = ta.trend.macd(close)
-
     daily_data = daily_data.dropna()
 
     if len(daily_data) < 50:
         return None
 
     features = ["Open", "High", "Low", "Volume", "SMA_10", "SMA_50", "RSI", "MACD"]
-
     X = daily_data[features]
     y = daily_data["Close"]
 
@@ -178,18 +162,20 @@ def analyze_stock(ticker):
     model.fit(X_train, y_train)
 
     pred = model.predict(X_test)
-
     mae = mean_absolute_error(y_test, pred)
     accuracy = max(0, 100 - (mae / y_test.mean() * 100))
 
     future_price = float(model.predict(X_scaled[-1].reshape(1, -1))[0])
 
-    # Live intraday price (up to current minute)
-    intraday_data = yf.download(ticker, period="1d", interval="1m", auto_adjust=True, progress=False)
-    if intraday_data is not None and not intraday_data.empty and "Close" in intraday_data:
-        live_price = float(intraday_data["Close"].dropna().iloc[-1])
-    else:
-        live_price = float(close.iloc[-1])  # fallback
+    # Live intraday price
+    try:
+        intraday_data = yf.download(ticker, period="1d", interval="1m", auto_adjust=True, progress=False)
+        if intraday_data is not None and not intraday_data.empty and "Close" in intraday_data:
+            live_price = float(intraday_data["Close"].dropna().iloc[-1])
+        else:
+            live_price = float(close.iloc[-1])
+    except Exception:
+        live_price = float(close.iloc[-1])
 
     volatility = float(close.pct_change().std())
     risk = "LOW" if volatility < 0.015 else "MODERATE" if volatility < 0.03 else "HIGH"
@@ -199,7 +185,7 @@ def analyze_stock(ticker):
         "pred": pred,
         "y_test": y_test,
         "future_price": future_price,
-        "current_price": live_price,   # <-- now shows today’s live price
+        "current_price": live_price,
         "accuracy": accuracy,
         "risk": risk
     }
@@ -208,7 +194,6 @@ def analyze_stock(ticker):
 # LOAD RESULTS
 # ============================================
 results = {}
-
 with st.spinner("Analyzing market..."):
     for name, ticker in stocks.items():
         r = analyze_stock(ticker)
@@ -216,16 +201,14 @@ with st.spinner("Analyzing market..."):
             results[name] = r
 
 # ============================================
-# RANKING (SAFE)
+# RANKING
 # ============================================
 if results:
     ranking = pd.DataFrame({
         "Stock": list(results.keys()),
         "Accuracy": [round(results[s]["accuracy"], 2) for s in results],
         "Risk": [results[s]["risk"] for s in results]
-    })
-
-    ranking = ranking.sort_values("Accuracy", ascending=False)
+    }).sort_values("Accuracy", ascending=False)
 
     st.subheader("AI Stock Rankings")
     st.dataframe(ranking)
@@ -239,7 +222,6 @@ else:
 # INVESTMENT
 # ============================================
 st.subheader("Buy Stocks")
-
 selected_stock = st.selectbox("Choose Stock", list(stocks.keys()))
 investment = st.number_input("Investment Amount", min_value=100, value=1000)
 
@@ -248,7 +230,6 @@ if selected_stock not in results:
     st.stop()
 
 stock_data = results[selected_stock]
-
 current_price = stock_data["current_price"]
 future_price = stock_data["future_price"]
 
@@ -257,21 +238,15 @@ future_value = shares * future_price
 profit = future_value - investment
 
 c1, c2, c3 = st.columns(3)
-
 c1.metric("Current Price", f"${current_price:.2f}")
 c2.metric("Predicted Price", f"${future_price:.2f}")
 c3.metric("Predicted Profit", f"${profit:.2f}")
 
-# ============================================
-# BUY
-# ============================================
 if st.button("Buy Stock"):
-    portfolio = load_portfolio()
+    portfolio = safe_load_json(PORTFOLIO_FILE)
     user = st.session_state.username
-
     if user not in portfolio:
         portfolio[user] = []
-
     portfolio[user].append({
         "stock": selected_stock,
         "ticker": stocks[selected_stock],
@@ -281,46 +256,47 @@ if st.button("Buy Stock"):
         "shares": shares,
         "date": str(datetime.now())
     })
-
-    save_portfolio(portfolio)
+    save_json(PORTFOLIO_FILE, portfolio)
     st.success("Stock purchased!")
 
 # ============================================
 # CHART
 # ============================================
 st.subheader("Prediction Graph")
-
 fig = go.Figure()
 
+# Full historical close prices
 fig.add_trace(go.Scatter(
-    x=stock_data["y_test"].index,
-    y=stock_data["y_test"].values,
-    name="Actual"
+    x=stock_data["data"].index,
+    y=stock_data["data"]["Close"],
+    name="Actual Close"
 ))
 
+# Predicted values on test set
 fig.add_trace(go.Scatter(
     x=stock_data["y_test"].index,
     y=stock_data["pred"],
-    name="Predicted"
+    name="Predicted (Test)"
+))
+
+# Current live price marker
+fig.add_trace(go.Scatter(
+    x=[datetime.now()],
+    y=[stock_data["current_price"]],
+    mode="markers+text",
+    text=["Live Price"],
+    name="Live Price",
+    marker=dict(color="red", size=10)
 ))
 
 fig.update_layout(template="plotly_dark", height=500)
-
 st.plotly_chart(fig, use_container_width=True)
 
-
 # ============================================
-# PORTFOLIO (FIXED)
-# ============================================
-# ============================================
-# PORTFOLIO (FIXED SCALAR HANDLING)
-# ============================================
-# ============================================
-# PORTFOLIO (5y + live today)
+# PORTFOLIO
 # ============================================
 st.subheader("My Portfolio")
-
-portfolio = load_portfolio()
+portfolio = safe_load_json(PORTFOLIO_FILE)
 user = st.session_state.username
 
 if user in portfolio and portfolio[user]:
@@ -333,7 +309,6 @@ if user in portfolio and portfolio[user]:
             intraday_data = yf.download(item["ticker"], period="1d", interval="1m", auto_adjust=True, progress=False)
             if intraday_data is not None and not intraday_data.empty and "Close" in intraday_data:
                 latest_price = float(intraday_data["Close"].dropna().iloc[-1])
-
             if latest_price is None:
                 latest_price = float(item["buy_price"])
 
@@ -351,7 +326,6 @@ if user in portfolio and portfolio[user]:
                 "Profit/Loss": round(profit_loss, 2),
                 "Date Bought": item["date"]
             })
-
         except Exception as e:
             st.warning(f"Error fetching {item['stock']} data: {e}")
 
@@ -365,9 +339,10 @@ if user in portfolio and portfolio[user]:
             st.error(f"Total Loss: ${abs(total_profit):.2f}")
         else:
             st.info("Portfolio is at break-even")
+
+        # Extra feature: allow CSV download
+        st.download_button("Download Portfolio", df.to_csv(index=False), "portfolio.csv")
     else:
         st.info("Portfolio loaded, but no valid price data.")
 else:
     st.info("No stocks purchased yet")
-
-
