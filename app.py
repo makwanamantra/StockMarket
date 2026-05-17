@@ -91,7 +91,7 @@ if not st.session_state.logged_in:
             if username in users and verify_password(password, users[username]["password"]):
                 st.session_state.logged_in = True
                 st.session_state.username = username
-                st.experimental_rerun()
+                st.rerun()   # ✅ fixed
             else:
                 st.sidebar.error("Invalid login")
 
@@ -101,7 +101,7 @@ st.sidebar.success(f"Logged in as {st.session_state.username}")
 if st.sidebar.button("Logout"):
     st.session_state.logged_in = False
     st.session_state.username = ""
-    st.experimental_rerun()
+    st.rerun()   # ✅ fixed
 
 # ============================================
 # STOCKS
@@ -264,85 +264,8 @@ if st.button("Buy Stock"):
 # ============================================
 st.subheader("Prediction Graph")
 fig = go.Figure()
-
-# Full historical close prices
-fig.add_trace(go.Scatter(
-    x=stock_data["data"].index,
-    y=stock_data["data"]["Close"],
-    name="Actual Close"
-))
-
-# Predicted values on test set
-fig.add_trace(go.Scatter(
-    x=stock_data["y_test"].index,
-    y=stock_data["pred"],
-    name="Predicted (Test)"
-))
-
-# Current live price marker
-fig.add_trace(go.Scatter(
-    x=[datetime.now()],
-    y=[stock_data["current_price"]],
-    mode="markers+text",
-    text=["Live Price"],
-    name="Live Price",
-    marker=dict(color="red", size=10)
-))
-
-fig.update_layout(template="plotly_dark", height=500)
-st.plotly_chart(fig, use_container_width=True)
-
-# ============================================
-# PORTFOLIO
-# ============================================
-st.subheader("My Portfolio")
-portfolio = safe_load_json(PORTFOLIO_FILE)
-user = st.session_state.username
-
-if user in portfolio and portfolio[user]:
-    portfolio_data = []
-    total_profit = 0
-
-    for item in portfolio[user]:
-        latest_price = None
-        try:
-            intraday_data = yf.download(item["ticker"], period="1d", interval="1m", auto_adjust=True, progress=False)
-            if intraday_data is not None and not intraday_data.empty and "Close" in intraday_data:
-                latest_price = float(intraday_data["Close"].dropna().iloc[-1])
-            if latest_price is None:
-                latest_price = float(item["buy_price"])
-
-            current_value = latest_price * item["shares"]
-            profit_loss = current_value - item["investment"]
-            total_profit += profit_loss
-
-            portfolio_data.append({
-                "Stock": item["stock"],
-                "Investment": round(item["investment"], 2),
-                "Buy Price": round(item["buy_price"], 2),
-                "Predicted Price": round(item["predicted_price"], 2),
-                "Current Price": round(latest_price, 2),
-                "Current Value": round(current_value, 2),
-                "Profit/Loss": round(profit_loss, 2),
-                "Date Bought": item["date"]
-            })
-        except Exception as e:
-            st.warning(f"Error fetching {item['stock']} data: {e}")
-
-    if portfolio_data:
-        df = pd.DataFrame(portfolio_data)
-        st.dataframe(df, use_container_width=True)
-
-        if total_profit > 0:
-            st.success(f"Total Profit: ${total_profit:.2f}")
-        elif total_profit < 0:
-            st.error(f"Total Loss: ${abs(total_profit):.2f}")
-        else:
-            st.info("Portfolio is at break-even")
-
-        # Extra feature: allow CSV download
-        st.download_button("Download Portfolio", df.to_csv(index=False), "portfolio.csv")
-    else:
-        st.info("Portfolio loaded, but no valid price data.")
-else:
-    st.info("No stocks purchased yet")
+fig.add_trace(go.Scatter(x=stock_data["data"].index, y=stock_data["data"]["Close"], name="Actual Close"))
+fig.add_trace(go.Scatter(x=stock_data["y_test"].index, y=stock_data["pred"], name="Predicted (Test)"))
+fig.add_trace(go.Scatter(x=[datetime.now()], y=[stock_data["current_price"]],
+                         mode="markers+text", text=["Live Price"], name="Live Price",
+                         marker=dict(color="red", size=10)))
