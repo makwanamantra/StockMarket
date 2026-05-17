@@ -94,7 +94,7 @@ if "username" not in st.session_state:
 # TITLE
 # ============================================
 
-st.title("📈 AI Stock Advisor Pro")
+st.title(" AI Stock Advisor Pro")
 # Refresh every 10 seconds
 st_autorefresh(
     interval=10 * 1000,
@@ -366,20 +366,20 @@ ranking = ranking.sort_values(
     ascending=False
 )
 
-st.subheader("🏆 AI Stock Rankings")
+st.subheader(" AI Stock Rankings")
 st.dataframe(ranking)
 
 best_stock = ranking.iloc[0]["Stock"]
 
 st.success(
-    f"🔥 AI Recommended Stock: {best_stock}"
+    f" AI Recommended Stock: {best_stock}"
 )
 
 # ============================================
 # INVESTMENT SECTION
 # ============================================
 
-st.subheader("💰 Buy Stocks")
+st.subheader(" Buy Stocks")
 
 selected_stock = st.selectbox(
     "Choose Stock",
@@ -428,7 +428,7 @@ c3.metric(
 # BUY BUTTON
 # ============================================
 
-if st.button("📥 Buy Stock"):
+if st.button(" Buy Stock"):
 
     portfolio = load_portfolio()
 
@@ -457,7 +457,7 @@ if st.button("📥 Buy Stock"):
 # CHART
 # ============================================
 
-st.subheader("📊 Prediction Graph")
+st.subheader(" Prediction Graph")
 
 fig = go.Figure()
 
@@ -487,7 +487,7 @@ st.plotly_chart(
 # PORTFOLIO
 # ============================================
 
-st.subheader("💼 My Portfolio")
+st.subheader("My Portfolio")
 
 portfolio = load_portfolio()
 
