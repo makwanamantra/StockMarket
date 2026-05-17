@@ -91,7 +91,7 @@ if not st.session_state.logged_in:
             if username in users and verify_password(password, users[username]["password"]):
                 st.session_state.logged_in = True
                 st.session_state.username = username
-                st.rerun()   # ✅ correct function
+                st.rerun()
             else:
                 st.sidebar.error("Invalid login")
 
@@ -101,7 +101,7 @@ st.sidebar.success(f"Logged in as {st.session_state.username}")
 if st.sidebar.button("Logout"):
     st.session_state.logged_in = False
     st.session_state.username = ""
-    st.rerun()   # ✅ correct function
+    st.rerun()
 
 # ============================================
 # STOCKS
@@ -162,6 +162,7 @@ def analyze_stock(ticker):
     model.fit(X_train, y_train)
 
     pred = model.predict(X_test)
+    full_pred = model.predict(X_scaled)  # full predictions for chart
     mae = mean_absolute_error(y_test, pred)
     accuracy = max(0, 100 - (mae / y_test.mean() * 100))
 
@@ -183,6 +184,7 @@ def analyze_stock(ticker):
     return {
         "data": daily_data,
         "pred": pred,
+        "full_pred": full_pred,
         "y_test": y_test,
         "future_price": future_price,
         "current_price": live_price,
@@ -265,18 +267,21 @@ if st.button("Buy Stock"):
 st.subheader("Prediction Graph")
 fig = go.Figure()
 
-# Full historical close prices
+# Actual close prices
 fig.add_trace(go.Scatter(
     x=stock_data["data"].index,
     y=stock_data["data"]["Close"],
-    name="Actual Close"
+    name="Actual Close",
+    hovertemplate="Date: %{x}<br>Price: $%{y:.2f}"
 ))
 
-# Predicted values on test set
+# Full predicted prices
 fig.add_trace(go.Scatter(
-    x=stock_data["y_test"].index,
-    y=stock_data["pred"],
-    name="Predicted (Test)"
+    x=stock_data["data"].index,
+    y=stock_data["full_pred"],
+    name="Predicted (Full)",
+    line=dict(dash="dot"),
+    hovertemplate="Date: %{x}<br>Predicted: $%{y:.2f}"
 ))
 
 # Current live price marker
@@ -285,11 +290,19 @@ fig.add_trace(go.Scatter(
     y=[stock_data["current_price"]],
     mode="markers+text",
     text=["Live Price"],
+    textposition="top center",
     name="Live Price",
-    marker=dict(color="red", size=10)
+    marker=dict(color="red", size=12),
+    hovertemplate="Live Price: $%{y:.2f}"
 ))
 
-fig.update_layout(template="plotly_dark", height=500)
+fig.update_layout(
+    template="plotly_dark",
+    height=500,
+    xaxis_title="Date",
+    yaxis_title="Price (USD)",
+    hovermode="x unified"
+)
 st.plotly_chart(fig, use_container_width=True)
 
 # ============================================
@@ -347,3 +360,4 @@ if user in portfolio and portfolio[user]:
 else:
     st.info("No stocks purchased yet")
 
+    
