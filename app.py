@@ -91,7 +91,7 @@ if not st.session_state.logged_in:
             if username in users and verify_password(password, users[username]["password"]):
                 st.session_state.logged_in = True
                 st.session_state.username = username
-                st.rerun()   # ✅ fixed
+                st.rerun()   # ✅ correct function
             else:
                 st.sidebar.error("Invalid login")
 
@@ -101,7 +101,7 @@ st.sidebar.success(f"Logged in as {st.session_state.username}")
 if st.sidebar.button("Logout"):
     st.session_state.logged_in = False
     st.session_state.username = ""
-    st.rerun()   # ✅ fixed
+    st.rerun()   # ✅ correct function
 
 # ============================================
 # STOCKS
@@ -268,4 +268,4 @@ fig.add_trace(go.Scatter(x=stock_data["data"].index, y=stock_data["data"]["Close
 fig.add_trace(go.Scatter(x=stock_data["y_test"].index, y=stock_data["pred"], name="Predicted (Test)"))
 fig.add_trace(go.Scatter(x=[datetime.now()], y=[stock_data["current_price"]],
                          mode="markers+text", text=["Live Price"], name="Live Price",
-                         marker=dict(color="red", size=10)))
+                         marker=dict(color="red",
