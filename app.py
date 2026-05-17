@@ -131,38 +131,43 @@ stocks = {
 # ============================================
 # SAFE STOCK ANALYSIS
 # ============================================
+# ============================================
+# SAFE STOCK ANALYSIS (5y + live today)
+# ============================================
 @st.cache_data(show_spinner=False)
 def analyze_stock(ticker):
 
-    data = yf.download(ticker, period="2y", interval="1d", auto_adjust=True, progress=False)
+    # 5 years of daily history for training
+    daily_data = yf.download(ticker, period="5y", interval="1d", auto_adjust=True, progress=False)
 
-    if data is None or data.empty:
+    if daily_data is None or daily_data.empty:
         return None
 
-    if isinstance(data.columns, pd.MultiIndex):
-        data.columns = data.columns.get_level_values(0)
+    if isinstance(daily_data.columns, pd.MultiIndex):
+        daily_data.columns = daily_data.columns.get_level_values(0)
 
-    data = data.dropna()
+    daily_data = daily_data.dropna()
 
-    if "Close" not in data.columns:
+    if "Close" not in daily_data.columns:
         return None
 
-    close = data["Close"].astype(float)
+    close = daily_data["Close"].astype(float)
 
-    data["SMA_10"] = ta.trend.sma_indicator(close, window=10)
-    data["SMA_50"] = ta.trend.sma_indicator(close, window=50)
-    data["RSI"] = ta.momentum.rsi(close, window=14)
-    data["MACD"] = ta.trend.macd(close)
+    # Technical indicators
+    daily_data["SMA_10"] = ta.trend.sma_indicator(close, window=10)
+    daily_data["SMA_50"] = ta.trend.sma_indicator(close, window=50)
+    daily_data["RSI"] = ta.momentum.rsi(close, window=14)
+    daily_data["MACD"] = ta.trend.macd(close)
 
-    data = data.dropna()
+    daily_data = daily_data.dropna()
 
-    if len(data) < 50:
+    if len(daily_data) < 50:
         return None
 
     features = ["Open", "High", "Low", "Volume", "SMA_10", "SMA_50", "RSI", "MACD"]
 
-    X = data[features]
-    y = data["Close"]
+    X = daily_data[features]
+    y = daily_data["Close"]
 
     scaler = MinMaxScaler()
     X_scaled = scaler.fit_transform(X)
@@ -178,18 +183,23 @@ def analyze_stock(ticker):
     accuracy = max(0, 100 - (mae / y_test.mean() * 100))
 
     future_price = float(model.predict(X_scaled[-1].reshape(1, -1))[0])
-    current_price = float(close.iloc[-1])
+
+    # Live intraday price (up to current minute)
+    intraday_data = yf.download(ticker, period="1d", interval="1m", auto_adjust=True, progress=False)
+    if intraday_data is not None and not intraday_data.empty and "Close" in intraday_data:
+        live_price = float(intraday_data["Close"].dropna().iloc[-1])
+    else:
+        live_price = float(close.iloc[-1])  # fallback
 
     volatility = float(close.pct_change().std())
-
     risk = "LOW" if volatility < 0.015 else "MODERATE" if volatility < 0.03 else "HIGH"
 
     return {
-        "data": data,
+        "data": daily_data,
         "pred": pred,
         "y_test": y_test,
         "future_price": future_price,
-        "current_price": current_price,
+        "current_price": live_price,   # <-- now shows today’s live price
         "accuracy": accuracy,
         "risk": risk
     }
@@ -318,7 +328,7 @@ if user in portfolio and portfolio[user]:
     for item in portfolio[user]:
         latest_price = None
         try:
-            latest_data = yf.download(item["ticker"], period="5d", interval="1d", progress=False)
+            latest_data = yf.download(item["ticker"], period="1d", interval="1m", progress=False)
 
             if latest_data is not None and not latest_data.empty and "Close" in latest_data:
                 close = latest_data["Close"].dropna()
