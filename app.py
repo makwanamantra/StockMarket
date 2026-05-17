@@ -520,10 +520,18 @@ if user in portfolio and len(portfolio[user]) > 0:
         if "Close" not in latest_data.columns:
             continue
         
-        close_series = latest_data["Close"].dropna()
+        close_series = latest_data.get("Close")
         
-        if close_series is None or len(close_series) == 0:
+        if close_series is None:
             continue
+        
+        close_series = close_series.dropna()
+        
+        if close_series.empty:
+            continue
+        
+
+
         
         latest_price = float(close_series.iloc[-1])
 
