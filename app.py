@@ -315,6 +315,9 @@ st.plotly_chart(fig, use_container_width=True)
 # ============================================
 # PORTFOLIO
 # ============================================
+# ============================================
+# PORTFOLIO
+# ============================================
 st.subheader("My Portfolio")
 portfolio = safe_load_json(PORTFOLIO_FILE)
 user = st.session_state.username
@@ -331,34 +334,29 @@ if user in portfolio and portfolio[user]:
             )
 
             if intraday_data is not None and not intraday_data.empty and "Close" in intraday_data:
-                # ✅ Always extract scalar with .iloc[-1]
-                latest_price = float(intraday_data["Close"].dropna().iloc[-1])
+                # ✅ Always extract scalar safely
+                latest_price = float(intraday_data["Close"].dropna().values[-1])
             else:
-                # ✅ Fallback to stored buy price
-                latest_price = float(item["buy_price"])
+                latest_price = float(item["buy_price"])  # fallback
 
-            current_value = latest_price * item["shares"]
-            profit_loss = current_value - item["investment"]
-            total_profit += profit_loss
-
-            portfolio_data.append({
-                "Stock": item["stock"],
-                "Investment": round(item["investment"], 2),
-                "Buy Price": round(item["buy_price"], 2),
-                "Predicted Price": round(item["predicted_price"], 2),
-                "Current Price": round(latest_price, 2),
-                "Current Value": round(current_value, 2),
-                "Profit/Loss": round(profit_loss, 2),
-                "Date Bought": item["date"]
-            })
-
-        except Exception as e:
-            st.warning(f"Error fetching {item['stock']} data: {e}")
+        except Exception:
             # ✅ Safe fallback if error occurs
             latest_price = float(item["buy_price"])
-            current_value = latest_price * item["shares"]
-            profit_loss = current_value - item["investment"]
-            total_profit += profit_loss
+
+        current_value = latest_price * item["shares"]
+        profit_loss = current_value - item["investment"]
+        total_profit += profit_loss
+
+        portfolio_data.append({
+            "Stock": item["stock"],
+            "Investment": round(item["investment"], 2),
+            "Buy Price": round(item["buy_price"], 2),
+            "Predicted Price": round(item["predicted_price"], 2),
+            "Current Price": round(latest_price, 2),
+            "Current Value": round(current_value, 2),
+            "Profit/Loss": round(profit_loss, 2),
+            "Date Bought": item["date"]
+        })
 
     if portfolio_data:
         df = pd.DataFrame(portfolio_data)
@@ -376,5 +374,6 @@ if user in portfolio and portfolio[user]:
         st.info("Portfolio loaded, but no valid price data.")
 else:
     st.info("No stocks purchased yet")
+
 
 
