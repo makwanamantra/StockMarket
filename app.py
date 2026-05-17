@@ -315,31 +315,25 @@ st.plotly_chart(fig, use_container_width=True)
 # ============================================
 # PORTFOLIO (FIXED SCALAR HANDLING)
 # ============================================
+# ============================================
+# PORTFOLIO (5y + live today)
+# ============================================
 st.subheader("My Portfolio")
 
 portfolio = load_portfolio()
 user = st.session_state.username
 
 if user in portfolio and portfolio[user]:
-
     portfolio_data = []
     total_profit = 0
 
     for item in portfolio[user]:
         latest_price = None
         try:
-            latest_data = yf.download(item["ticker"], period="1d", interval="1m", progress=False)
+            intraday_data = yf.download(item["ticker"], period="1d", interval="1m", auto_adjust=True, progress=False)
+            if intraday_data is not None and not intraday_data.empty and "Close" in intraday_data:
+                latest_price = float(intraday_data["Close"].dropna().iloc[-1])
 
-            if latest_data is not None and not latest_data.empty and "Close" in latest_data:
-                close = latest_data["Close"].dropna()
-                if not close.empty:
-                    # Ensure scalar extraction
-                    latest_price = close.iloc[-1]
-                    if isinstance(latest_price, (pd.Series, pd.DataFrame)):
-                        latest_price = latest_price.squeeze()
-                    latest_price = float(latest_price)
-
-            # Fallback if no recent data
             if latest_price is None:
                 latest_price = float(item["buy_price"])
 
@@ -360,17 +354,6 @@ if user in portfolio and portfolio[user]:
 
         except Exception as e:
             st.warning(f"Error fetching {item['stock']} data: {e}")
-            # Still show the stock with saved values
-            portfolio_data.append({
-                "Stock": item["stock"],
-                "Investment": round(item["investment"], 2),
-                "Buy Price": round(item["buy_price"], 2),
-                "Predicted Price": round(item["predicted_price"], 2),
-                "Current Price": round(item["buy_price"], 2),
-                "Current Value": round(item["investment"], 2),
-                "Profit/Loss": 0.0,
-                "Date Bought": item["date"]
-            })
 
     if portfolio_data:
         df = pd.DataFrame(portfolio_data)
@@ -384,7 +367,7 @@ if user in portfolio and portfolio[user]:
             st.info("Portfolio is at break-even")
     else:
         st.info("Portfolio loaded, but no valid price data.")
-
 else:
     st.info("No stocks purchased yet")
+
 
