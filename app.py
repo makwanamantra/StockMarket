@@ -315,9 +315,7 @@ st.plotly_chart(fig, use_container_width=True)
 # ============================================
 # PORTFOLIO
 # ============================================
-# ============================================
-# PORTFOLIO
-# ============================================
+
 st.subheader("My Portfolio")
 portfolio = safe_load_json(PORTFOLIO_FILE)
 user = st.session_state.username
@@ -326,6 +324,23 @@ if user in portfolio and portfolio[user]:
     portfolio_data = []
     total_profit = 0
 
+    # Allow deletion of stock entries
+    delete_index = st.selectbox(
+        "Select a stock to delete from portfolio",
+        options=[f"{i+1}. {item['stock']}" for i, item in enumerate(portfolio[user])],
+        index=None,
+        placeholder="Choose a stock to remove"
+    )
+
+    if delete_index and st.button("Delete Selected Stock"):
+        idx = int(delete_index.split(".")[0]) - 1
+        if 0 <= idx < len(portfolio[user]):
+            removed = portfolio[user].pop(idx)
+            save_json(PORTFOLIO_FILE, portfolio)
+            st.success(f"Deleted {removed['stock']} from portfolio.")
+            st.rerun()
+
+    # Calculate profit/loss for each stock
     for item in portfolio[user]:
         try:
             intraday_data = yf.download(
@@ -334,17 +349,13 @@ if user in portfolio and portfolio[user]:
             )
 
             if intraday_data is not None and not intraday_data.empty and "Close" in intraday_data:
-                # ✅ Always extract scalar safely
-                latest_price = float(intraday_data["Close"].dropna().values[-1])
+                latest_price = float(intraday_data["Close"].dropna().values[-1])  # ✅ safe scalar
             else:
-                # ✅ Fallback to predicted price if live data missing
-                latest_price = float(item["predicted_price"])
+                latest_price = float(item["predicted_price"])  # fallback to prediction
 
         except Exception:
-            # ✅ Safe fallback if error occurs
-            latest_price = float(item["predicted_price"])
+            latest_price = float(item["predicted_price"])  # safe fallback
 
-        # Calculate values
         current_value = latest_price * item["shares"]
         profit_loss = current_value - item["investment"]
         total_profit += profit_loss
@@ -377,6 +388,7 @@ if user in portfolio and portfolio[user]:
         st.info("Portfolio loaded, but no valid price data.")
 else:
     st.info("No stocks purchased yet")
+
 
 
 
