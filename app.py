@@ -272,7 +272,7 @@ fig.add_trace(go.Scatter(
     x=stock_data["data"].index,
     y=stock_data["data"]["Close"],
     name="Actual Close",
-    hovertemplate="Date: %{x}<br>Price: $%{y:.2f}"
+    hovertemplate="Date: %{x|%Y-%m-%d %H:%M}<br>Price: $%{y:.2f}"
 ))
 
 # Full predicted prices
@@ -281,7 +281,7 @@ fig.add_trace(go.Scatter(
     y=stock_data["full_pred"],
     name="Predicted (Full)",
     line=dict(dash="dot"),
-    hovertemplate="Date: %{x}<br>Predicted: $%{y:.2f}"
+    hovertemplate="Date: %{x|%Y-%m-%d %H:%M}<br>Predicted: $%{y:.2f}"
 ))
 
 # Current live price marker
@@ -293,16 +293,22 @@ fig.add_trace(go.Scatter(
     textposition="top center",
     name="Live Price",
     marker=dict(color="red", size=12),
-    hovertemplate="Live Price: $%{y:.2f}"
+    hovertemplate="Live Price<br>Date: %{x|%Y-%m-%d %H:%M}<br>Price: $%{y:.2f}"
 ))
 
 fig.update_layout(
     template="plotly_dark",
     height=500,
-    xaxis_title="Date",
+    xaxis=dict(
+        title="Date/Time",
+        showspikes=True,
+        spikemode="across",
+        tickformat="%Y-%m-%d %H:%M"
+    ),
     yaxis_title="Price (USD)",
     hovermode="x unified"
 )
+
 st.plotly_chart(fig, use_container_width=True)
 
 # ============================================
@@ -359,5 +365,3 @@ if user in portfolio and portfolio[user]:
         st.info("Portfolio loaded, but no valid price data.")
 else:
     st.info("No stocks purchased yet")
-
-    
