@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 import json
 import os
 import bcrypt
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from xgboost import XGBRegressor
 from sklearn.preprocessing import MinMaxScaler
