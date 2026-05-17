@@ -302,6 +302,9 @@ st.plotly_chart(fig, use_container_width=True)
 # ============================================
 # PORTFOLIO (FIXED)
 # ============================================
+# ============================================
+# PORTFOLIO (FIXED SCALAR HANDLING)
+# ============================================
 st.subheader("My Portfolio")
 
 portfolio = load_portfolio()
@@ -320,11 +323,15 @@ if user in portfolio and portfolio[user]:
             if latest_data is not None and not latest_data.empty and "Close" in latest_data:
                 close = latest_data["Close"].dropna()
                 if not close.empty:
-                    latest_price = float(close.iloc[-1])
+                    # Ensure scalar extraction
+                    latest_price = close.iloc[-1]
+                    if isinstance(latest_price, (pd.Series, pd.DataFrame)):
+                        latest_price = latest_price.squeeze()
+                    latest_price = float(latest_price)
 
             # Fallback if no recent data
             if latest_price is None:
-                latest_price = item["buy_price"]
+                latest_price = float(item["buy_price"])
 
             current_value = latest_price * item["shares"]
             profit_loss = current_value - item["investment"]
@@ -370,3 +377,4 @@ if user in portfolio and portfolio[user]:
 
 else:
     st.info("No stocks purchased yet")
+
