@@ -311,6 +311,7 @@ fig.update_layout(
 
 st.plotly_chart(fig, use_container_width=True)
 
+
 # ============================================
 # PORTFOLIO
 # ============================================
@@ -324,11 +325,17 @@ if user in portfolio and portfolio[user]:
 
     for item in portfolio[user]:
         try:
-            intraday_data = yf.download(item["ticker"], period="1d", interval="1m", auto_adjust=True, progress=False)
+            intraday_data = yf.download(
+                item["ticker"], period="1d", interval="1m",
+                auto_adjust=True, progress=False
+            )
+
             if intraday_data is not None and not intraday_data.empty and "Close" in intraday_data:
-                latest_price = float(intraday_data["Close"].dropna().iloc[-1])  # ✅ safe scalar
+                # ✅ Always extract scalar with .iloc[-1]
+                latest_price = float(intraday_data["Close"].dropna().iloc[-1])
             else:
-                latest_price = float(item["buy_price"])  # fallback
+                # ✅ Fallback to stored buy price
+                latest_price = float(item["buy_price"])
 
             current_value = latest_price * item["shares"]
             profit_loss = current_value - item["investment"]
@@ -344,8 +351,14 @@ if user in portfolio and portfolio[user]:
                 "Profit/Loss": round(profit_loss, 2),
                 "Date Bought": item["date"]
             })
+
         except Exception as e:
             st.warning(f"Error fetching {item['stock']} data: {e}")
+            # ✅ Safe fallback if error occurs
+            latest_price = float(item["buy_price"])
+            current_value = latest_price * item["shares"]
+            profit_loss = current_value - item["investment"]
+            total_profit += profit_loss
 
     if portfolio_data:
         df = pd.DataFrame(portfolio_data)
@@ -363,4 +376,5 @@ if user in portfolio and portfolio[user]:
         st.info("Portfolio loaded, but no valid price data.")
 else:
     st.info("No stocks purchased yet")
+
 
