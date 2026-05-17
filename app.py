@@ -508,20 +508,23 @@ if user in portfolio and len(portfolio[user]) > 0:
         ticker = item["ticker"]
 
         latest_data = yf.download(
-            ticker,
-            period="5d",
-            interval="1d",
-            progress=False
+        ticker,
+        period="5d",
+        interval="1d",
+        progress=False
         )
     
-        if latest_data.empty or "Close" not in latest_data.columns:
-            continue  # skip this stock safely
-
-        close_series = latest_data["Close"].dropna()
-
-        if close_series.empty:
+        if latest_data is None or latest_data.empty:
             continue
-
+    
+        if "Close" not in latest_data.columns:
+            continue
+        
+        close_series = latest_data["Close"].dropna()
+        
+        if close_series is None or len(close_series) == 0:
+            continue
+        
         latest_price = float(close_series.iloc[-1])
 
         current_value = (
