@@ -340,8 +340,7 @@ if user in portfolio and portfolio[user]:
                 latest_price = float(item["buy_price"])  # fallback
 
         except Exception:
-            # ✅ Safe fallback if error occurs
-            latest_price = float(item["buy_price"])
+            latest_price = float(item["buy_price"])  # safe fallback
 
         current_value = latest_price * item["shares"]
         profit_loss = current_value - item["investment"]
@@ -362,10 +361,11 @@ if user in portfolio and portfolio[user]:
         df = pd.DataFrame(portfolio_data)
         st.dataframe(df, use_container_width=True)
 
+        # ✅ Show total portfolio profit/loss
         if total_profit > 0:
-            st.success(f"Total Profit: ${total_profit:.2f}")
+            st.success(f"Total Portfolio Profit: ${total_profit:.2f}")
         elif total_profit < 0:
-            st.error(f"Total Loss: ${abs(total_profit):.2f}")
+            st.error(f"Total Portfolio Loss: ${abs(total_profit):.2f}")
         else:
             st.info("Portfolio is at break-even")
 
@@ -374,6 +374,7 @@ if user in portfolio and portfolio[user]:
         st.info("Portfolio loaded, but no valid price data.")
 else:
     st.info("No stocks purchased yet")
+
 
 
 
