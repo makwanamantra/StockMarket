@@ -168,7 +168,7 @@ def analyze_stock(ticker):
 
     future_price = float(model.predict(X_scaled[-1].reshape(1, -1))[0])
 
-    # Live intraday price (safe float extraction)
+    # Live intraday price (safe scalar extraction)
     try:
         intraday_data = yf.download(ticker, period="1d", interval="1m", auto_adjust=True, progress=False)
         if intraday_data is not None and not intraday_data.empty and "Close" in intraday_data:
@@ -363,3 +363,4 @@ if user in portfolio and portfolio[user]:
         st.info("Portfolio loaded, but no valid price data.")
 else:
     st.info("No stocks purchased yet")
+
