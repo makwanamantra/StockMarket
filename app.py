@@ -310,6 +310,57 @@ fig.update_layout(
 )
 
 st.plotly_chart(fig, use_container_width=True)
+from datetime import datetime
+import pandas as pd
+
+def add_trading_hours_annotations(fig, ticker):
+    """
+    Adds local IST trading hours (open/close) markers and IST hover formatting
+    to the Plotly chart depending on whether the ticker is NSE/BSE or US.
+    """
+
+    # Detect exchange type based on ticker suffix
+    if ticker.endswith(".NS") or ticker.endswith(".BO"):
+        # NSE/BSE timings (IST)
+        open_time = datetime.now().replace(hour=9, minute=15, second=0, microsecond=0)
+        close_time = datetime.now().replace(hour=15, minute=30, second=0, microsecond=0)
+        market_label = "NSE/BSE (IST)"
+    else:
+        # US market timings converted to IST
+        # Open: 9:30 AM ET → 7:00 PM IST
+        # Close: 4:00 PM ET → 1:30 AM IST (next day)
+        open_time = datetime.now().replace(hour=19, minute=0, second=0, microsecond=0)
+        close_time = datetime.now().replace(hour=1, minute=30, second=0, microsecond=0) + pd.Timedelta(days=1)
+        market_label = "NYSE/NASDAQ (IST)"
+
+    # Update hovertemplate to show IST time
+    fig.update_traces(
+        hovertemplate="Date (IST): %{x|%Y-%m-%d %H:%M}<br>Price: $%{y:.2f}"
+    )
+
+    # Add vertical lines for market open/close
+    fig.add_vline(
+        x=open_time,
+        line_dash="dash",
+        line_color="green",
+        annotation_text=f"Market Open {market_label}",
+        annotation_position="top left"
+    )
+
+    fig.add_vline(
+        x=close_time,
+        line_dash="dash",
+        line_color="red",
+        annotation_text=f"Market Close {market_label}",
+        annotation_position="top right"
+    )
+
+    return fig
+# Add trading hours overlay
+fig = add_trading_hours_annotations(fig, stocks[selected_stock])
+
+# Show chart
+st.plotly_chart(fig, use_container_width=True)
 
 
 # ============================================
