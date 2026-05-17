@@ -1,9 +1,7 @@
-
 from streamlit_autorefresh import st_autorefresh
 import streamlit as st
 import yfinance as yf
 import pandas as pd
-import numpy as np
 import ta
 import plotly.graph_objects as go
 import json
@@ -19,22 +17,13 @@ from sklearn.metrics import mean_absolute_error
 # ============================================
 # PAGE CONFIG
 # ============================================
-
-st.set_page_config(
-    page_title="AI Stock Advisor Pro",
-    layout="wide"
-)
+st.set_page_config(page_title="AI Stock Advisor Pro", layout="wide")
 
 # ============================================
 # FILES
 # ============================================
-
 USER_FILE = "users.json"
 PORTFOLIO_FILE = "portfolio.json"
-
-# ============================================
-# CREATE FILES IF NOT EXIST
-# ============================================
 
 if not os.path.exists(USER_FILE):
     with open(USER_FILE, "w") as f:
@@ -45,9 +34,8 @@ if not os.path.exists(PORTFOLIO_FILE):
         json.dump({}, f)
 
 # ============================================
-# LOAD DATA
+# LOAD/SAVE
 # ============================================
-
 def load_users():
     with open(USER_FILE, "r") as f:
         return json.load(f)
@@ -65,138 +53,71 @@ def save_portfolio(data):
         json.dump(data, f)
 
 # ============================================
-# AUTH FUNCTIONS
+# AUTH
 # ============================================
-
 def hash_password(password):
-    return bcrypt.hashpw(
-        password.encode(),
-        bcrypt.gensalt()
-    ).decode()
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
 def verify_password(password, hashed):
-    return bcrypt.checkpw(
-        password.encode(),
-        hashed.encode()
-    )
+    return bcrypt.checkpw(password.encode(), hashed.encode())
 
 # ============================================
-# SESSION STATE
+# SESSION
 # ============================================
-
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
-
 if "username" not in st.session_state:
     st.session_state.username = ""
 
 # ============================================
-# TITLE
+# UI
 # ============================================
+st.title("AI Stock Advisor Pro")
 
-st.title(" AI Stock Advisor Pro")
-# Refresh every 10 seconds
-st_autorefresh(
-    interval= 5*60* 1000,
-    key="stock_refresh"
-)
+st_autorefresh(interval=10 * 1000, key="stock_refresh")
 
 # ============================================
-# LOGIN / SIGNUP
+# LOGIN
 # ============================================
-
 if not st.session_state.logged_in:
-
-    auth_mode = st.sidebar.radio(
-        "Choose",
-        ["Login", "Signup"]
-    )
-
+    mode = st.sidebar.radio("Choose", ["Login", "Signup"])
     users = load_users()
 
     username = st.sidebar.text_input("Username")
-    password = st.sidebar.text_input(
-        "Password",
-        type="password"
-    )
+    password = st.sidebar.text_input("Password", type="password")
 
-    # ========================================
-    # SIGNUP
-    # ========================================
-
-    if auth_mode == "Signup":
-
+    if mode == "Signup":
         if st.sidebar.button("Create Account"):
-
             if username in users:
                 st.sidebar.error("User already exists")
-
             elif len(password) < 4:
-                st.sidebar.error(
-                    "Password too short"
-                )
-
+                st.sidebar.error("Password too short")
             else:
-                users[username] = {
-                    "password": hash_password(password)
-                }
-
+                users[username] = {"password": hash_password(password)}
                 save_users(users)
-
-                st.sidebar.success(
-                    "Account created successfully"
-                )
-
-    # ========================================
-    # LOGIN
-    # ========================================
+                st.sidebar.success("Account created")
 
     else:
-
         if st.sidebar.button("Login"):
-
-            if username in users:
-
-                saved_hash = users[username]["password"]
-
-                if verify_password(
-                    password,
-                    saved_hash
-                ):
-
-                    st.session_state.logged_in = True
-                    st.session_state.username = username
-
-                    st.rerun()
-
-                else:
-                    st.sidebar.error(
-                        "Wrong password"
-                    )
-
+            if username in users and verify_password(password, users[username]["password"]):
+                st.session_state.logged_in = True
+                st.session_state.username = username
+                st.rerun()
             else:
-                st.sidebar.error("User not found")
+                st.sidebar.error("Invalid login")
 
     st.stop()
 
-# ============================================
-# LOGGED IN
-# ============================================
-
-st.sidebar.success(
-    f"Logged in as {st.session_state.username}"
-)
+st.sidebar.success(f"Logged in as {st.session_state.username}")
 
 if st.sidebar.button("Logout"):
-
     st.session_state.logged_in = False
     st.session_state.username = ""
     st.rerun()
 
 # ============================================
-# STOCK LIST
+# STOCKS
 # ============================================
-
 stocks = {
     "Apple": "AAPL",
     "Microsoft": "MSFT",
@@ -208,117 +129,60 @@ stocks = {
 }
 
 # ============================================
-# STOCK ANALYSIS
+# SAFE STOCK ANALYSIS
 # ============================================
-
 @st.cache_data(show_spinner=False)
 def analyze_stock(ticker):
 
-    data = yf.download(
-        ticker,
-        period="2y",
-        interval="1d",
-        auto_adjust=True,
-        progress=False
-    )
+    data = yf.download(ticker, period="2y", interval="1d", auto_adjust=True, progress=False)
 
-    if data.empty:
+    if data is None or data.empty:
         return None
 
     if isinstance(data.columns, pd.MultiIndex):
         data.columns = data.columns.get_level_values(0)
 
-    data.dropna(inplace=True)
+    data = data.dropna()
+
+    if "Close" not in data.columns:
+        return None
 
     close = data["Close"].astype(float)
 
-    # Indicators
-    data["SMA_10"] = ta.trend.sma_indicator(
-        close,
-        window=10
-    )
-
-    data["SMA_50"] = ta.trend.sma_indicator(
-        close,
-        window=50
-    )
-
-    data["RSI"] = ta.momentum.rsi(
-        close,
-        window=14
-    )
-
+    data["SMA_10"] = ta.trend.sma_indicator(close, window=10)
+    data["SMA_50"] = ta.trend.sma_indicator(close, window=50)
+    data["RSI"] = ta.momentum.rsi(close, window=14)
     data["MACD"] = ta.trend.macd(close)
 
-    data.dropna(inplace=True)
+    data = data.dropna()
 
-    features = [
-        "Open",
-        "High",
-        "Low",
-        "Volume",
-        "SMA_10",
-        "SMA_50",
-        "RSI",
-        "MACD"
-    ]
+    if len(data) < 50:
+        return None
+
+    features = ["Open", "High", "Low", "Volume", "SMA_10", "SMA_50", "RSI", "MACD"]
 
     X = data[features]
     y = data["Close"]
 
     scaler = MinMaxScaler()
-
     X_scaled = scaler.fit_transform(X)
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X_scaled,
-        y,
-        test_size=0.2,
-        shuffle=False
-    )
+    X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, shuffle=False)
 
-    model = XGBRegressor(
-        n_estimators=200,
-        learning_rate=0.05,
-        max_depth=5,
-        random_state=42
-    )
-
+    model = XGBRegressor(n_estimators=200, learning_rate=0.05, max_depth=5, random_state=42)
     model.fit(X_train, y_train)
 
     pred = model.predict(X_test)
 
-    mae = mean_absolute_error(
-        y_test,
-        pred
-    )
+    mae = mean_absolute_error(y_test, pred)
+    accuracy = max(0, 100 - (mae / y_test.mean() * 100))
 
-    accuracy = max(
-        0,
-        100 - (mae / y_test.mean() * 100)
-    )
-
-    future_price = float(
-        model.predict(
-            X_scaled[-1].reshape(1, -1)
-        )[0]
-    )
-
+    future_price = float(model.predict(X_scaled[-1].reshape(1, -1))[0])
     current_price = float(close.iloc[-1])
 
-    # Risk
-    volatility = float(
-        close.pct_change().std()
-    )
+    volatility = float(close.pct_change().std())
 
-    if volatility < 0.015:
-        risk = "LOW"
-
-    elif volatility < 0.03:
-        risk = "MODERATE"
-
-    else:
-        risk = "HIGH"
+    risk = "LOW" if volatility < 0.015 else "MODERATE" if volatility < 0.03 else "HIGH"
 
     return {
         "data": data,
@@ -333,67 +197,44 @@ def analyze_stock(ticker):
 # ============================================
 # LOAD RESULTS
 # ============================================
-
 results = {}
 
 with st.spinner("Analyzing market..."):
-
     for name, ticker in stocks.items():
-
         r = analyze_stock(ticker)
-
         if r:
             results[name] = r
 
 # ============================================
-# TOP STOCKS
+# RANKING (SAFE)
 # ============================================
+if results:
+    ranking = pd.DataFrame({
+        "Stock": list(results.keys()),
+        "Accuracy": [round(results[s]["accuracy"], 2) for s in results],
+        "Risk": [results[s]["risk"] for s in results]
+    })
 
-ranking = pd.DataFrame({
-    "Stock": list(results.keys()),
-    "Accuracy": [
-        round(results[s]["accuracy"], 2)
-        for s in results
-    ],
-    "Risk": [
-        results[s]["risk"]
-        for s in results
-    ]
-})
+    ranking = ranking.sort_values("Accuracy", ascending=False)
 
-ranking = ranking.sort_values(
-    by="Accuracy",
-    ascending=False
-)
+    st.subheader("AI Stock Rankings")
+    st.dataframe(ranking)
 
-st.subheader(" AI Stock Rankings")
-st.dataframe(ranking)
-
-best_stock = ranking.iloc[0]["Stock"]
-
-st.success(
-    f" AI Recommended Stock: {best_stock}"
-)
+    best_stock = ranking.iloc[0]["Stock"]
+    st.success(f"AI Recommended Stock: {best_stock}")
+else:
+    st.warning("No stock data available")
 
 # ============================================
-# INVESTMENT SECTION
+# INVESTMENT
 # ============================================
+st.subheader("Buy Stocks")
 
-st.subheader(" Buy Stocks")
-
-selected_stock = st.selectbox(
-    "Choose Stock",
-    list(stocks.keys())
-)
-
-investment = st.number_input(
-    "Investment Amount",
-    min_value=100,
-    value=1000
-)
+selected_stock = st.selectbox("Choose Stock", list(stocks.keys()))
+investment = st.number_input("Investment Amount", min_value=100, value=1000)
 
 if selected_stock not in results:
-    st.error("Stock data not available")
+    st.warning("Stock data not available")
     st.stop()
 
 stock_data = results[selected_stock]
@@ -402,40 +243,20 @@ current_price = stock_data["current_price"]
 future_price = stock_data["future_price"]
 
 shares = investment / current_price
-
 future_value = shares * future_price
-
 profit = future_value - investment
-
-# ============================================
-# METRICS
-# ============================================
 
 c1, c2, c3 = st.columns(3)
 
-c1.metric(
-    "Current Price",
-    f"${current_price:.2f}"
-)
-
-c2.metric(
-    "Predicted Price",
-    f"${future_price:.2f}"
-)
-
-c3.metric(
-    "Predicted Profit",
-    f"${profit:.2f}"
-)
+c1.metric("Current Price", f"${current_price:.2f}")
+c2.metric("Predicted Price", f"${future_price:.2f}")
+c3.metric("Predicted Profit", f"${profit:.2f}")
 
 # ============================================
-# BUY BUTTON
+# BUY
 # ============================================
-
-if st.button(" Buy Stock"):
-
+if st.button("Buy Stock"):
     portfolio = load_portfolio()
-
     user = st.session_state.username
 
     if user not in portfolio:
@@ -452,16 +273,12 @@ if st.button(" Buy Stock"):
     })
 
     save_portfolio(portfolio)
-
-    st.success(
-        f"Successfully bought {selected_stock}"
-    )
+    st.success("Stock purchased!")
 
 # ============================================
 # CHART
 # ============================================
-
-st.subheader(" Prediction Graph")
+st.subheader("Prediction Graph")
 
 fig = go.Figure()
 
@@ -477,119 +294,66 @@ fig.add_trace(go.Scatter(
     name="Predicted"
 ))
 
-fig.update_layout(
-    template="plotly_dark",
-    height=500
-)
+fig.update_layout(template="plotly_dark", height=500)
 
-st.plotly_chart(
-    fig,
-    use_container_width=True
-)
+st.plotly_chart(fig, use_container_width=True)
 
 # ============================================
-# PORTFOLIO
+# PORTFOLIO SAFE
 # ============================================
-
 st.subheader("My Portfolio")
 
 portfolio = load_portfolio()
-
 user = st.session_state.username
 
-if user in portfolio and len(portfolio[user]) > 0:
+if user in portfolio and portfolio[user]:
 
     portfolio_data = []
-
     total_profit = 0
 
     for item in portfolio[user]:
 
-        ticker = item["ticker"]
+        try:
+            latest_data = yf.download(item["ticker"], period="5d", interval="1d", progress=False)
 
-        latest_data = yf.download(
-        ticker,
-        period="5d",
-        interval="1d",
-        progress=False
-        )
-    
-        if latest_data is None or latest_data.empty:
+            if latest_data is None or latest_data.empty or "Close" not in latest_data:
+                continue
+
+            close = latest_data["Close"].dropna()
+
+            if close.empty:
+                continue
+
+            latest_price = float(close.iloc[-1])
+
+            current_value = latest_price * item["shares"]
+            profit_loss = current_value - item["investment"]
+
+            total_profit += profit_loss
+
+            portfolio_data.append({
+                "Stock": item["stock"],
+                "Investment": round(item["investment"], 2),
+                "Buy Price": round(item["buy_price"], 2),
+                "Predicted Price": round(item["predicted_price"], 2),
+                "Current Price": round(latest_price, 2),
+                "Current Value": round(current_value, 2),
+                "Profit/Loss": round(profit_loss, 2)
+            })
+
+        except:
             continue
-    
-        if "Close" not in latest_data.columns:
-            continue
-        
-        close_series = latest_data.get("Close")
-        
-        if close_series is None:
-            continue
-        
-        close_series = close_series.dropna()
-        
-        if close_series.empty:
-            continue
-        
 
+    if portfolio_data:
+        df = pd.DataFrame(portfolio_data)
+        st.dataframe(df, use_container_width=True)
 
-        
-        latest_price = float(close_series.iloc[-1])
-
-        current_value = (
-            latest_price * item["shares"]
-        )
-
-        profit_loss = (
-            current_value - item["investment"]
-        )
-
-        total_profit += profit_loss
-
-        portfolio_data.append({
-            "Stock": item["stock"],
-            "Investment": round(
-                item["investment"],
-                2
-            ),
-            "Buy Price": round(
-                item["buy_price"],
-                2
-            ),
-            "Predicted Price": round(
-                item["predicted_price"],
-                2
-            ),
-            "Current Price": round(
-                latest_price,
-                2
-            ),
-            "Current Value": round(
-                current_value,
-                2
-            ),
-            "Profit/Loss": round(
-                profit_loss,
-                2
-            )
-        })
-
-    df = pd.DataFrame(portfolio_data)
-
-    st.dataframe(
-        df,
-        use_container_width=True
-    )
-
-    if total_profit > 0:
-        st.success(
-            f"Total Profit: ${total_profit:.2f}"
-        )
-
+        if total_profit > 0:
+            st.success(f"Total Profit: ${total_profit:.2f}")
+        else:
+            st.error(f"Total Loss: ${abs(total_profit):.2f}")
     else:
-        st.error(
-            f"Total Loss: ${abs(total_profit):.2f}"
-        )
+        st.info("No valid portfolio data")
 
 else:
     st.info("No stocks purchased yet")
-
