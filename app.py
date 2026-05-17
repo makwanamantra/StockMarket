@@ -162,13 +162,13 @@ def analyze_stock(ticker):
     model.fit(X_train, y_train)
 
     pred = model.predict(X_test)
-    full_pred = model.predict(X_scaled)  # full predictions for chart
+    full_pred = model.predict(X_scaled)
     mae = mean_absolute_error(y_test, pred)
     accuracy = max(0, 100 - (mae / y_test.mean() * 100))
 
     future_price = float(model.predict(X_scaled[-1].reshape(1, -1))[0])
 
-    # Live intraday price
+    # Live intraday price (safe float extraction)
     try:
         intraday_data = yf.download(ticker, period="1d", interval="1m", auto_adjust=True, progress=False)
         if intraday_data is not None and not intraday_data.empty and "Close" in intraday_data:
@@ -323,13 +323,12 @@ if user in portfolio and portfolio[user]:
     total_profit = 0
 
     for item in portfolio[user]:
-        latest_price = None
         try:
             intraday_data = yf.download(item["ticker"], period="1d", interval="1m", auto_adjust=True, progress=False)
             if intraday_data is not None and not intraday_data.empty and "Close" in intraday_data:
-                latest_price = float(intraday_data["Close"].dropna().iloc[-1])
-            if latest_price is None:
-                latest_price = float(item["buy_price"])
+                latest_price = float(intraday_data["Close"].dropna().iloc[-1])  # ✅ safe scalar
+            else:
+                latest_price = float(item["buy_price"])  # fallback
 
             current_value = latest_price * item["shares"]
             profit_loss = current_value - item["investment"]
@@ -359,7 +358,6 @@ if user in portfolio and portfolio[user]:
         else:
             st.info("Portfolio is at break-even")
 
-        # Extra feature: allow CSV download
         st.download_button("Download Portfolio", df.to_csv(index=False), "portfolio.csv")
     else:
         st.info("Portfolio loaded, but no valid price data.")
