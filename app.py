@@ -313,10 +313,12 @@ st.plotly_chart(fig, use_container_width=True)
 from datetime import datetime
 import pandas as pd
 
+
 def add_trading_hours_annotations(fig, ticker):
     """
-    Adds local IST trading hours (open/close) markers and IST hover formatting
-    to the Plotly chart depending on whether the ticker is NSE/BSE or US.
+    Adds local IST trading hours (open/close) markers, shaded trading session,
+    and IST hover formatting to the Plotly chart depending on whether the ticker
+    is NSE/BSE or US.
     """
 
     # Detect exchange type based on ticker suffix
@@ -333,7 +335,7 @@ def add_trading_hours_annotations(fig, ticker):
         close_time = datetime.now().replace(hour=1, minute=30, second=0, microsecond=0) + pd.Timedelta(days=1)
         market_label = "NYSE/NASDAQ (IST)"
 
-    # Update hovertemplate to show IST time
+    # Update hovertemplate to show IST time for all traces
     fig.update_traces(
         hovertemplate="Date (IST): %{x|%Y-%m-%d %H:%M}<br>Price: $%{y:.2f}"
     )
@@ -355,12 +357,24 @@ def add_trading_hours_annotations(fig, ticker):
         annotation_position="top right"
     )
 
+    # Shade the active trading session
+    fig.add_vrect(
+        x0=open_time,
+        x1=close_time,
+        fillcolor="rgba(0, 255, 0, 0.1)",  # light green transparent
+        layer="below",
+        line_width=0,
+        annotation_text=f"Trading Session {market_label}",
+        annotation_position="top center"
+    )
+
     return fig
-# Add trading hours overlay
+# Add trading hours overlay + IST hover
 fig = add_trading_hours_annotations(fig, stocks[selected_stock])
 
 # Show chart
 st.plotly_chart(fig, use_container_width=True)
+
 
 
 # ============================================
