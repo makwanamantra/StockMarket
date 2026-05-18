@@ -309,61 +309,111 @@ fig.update_layout(
     hovermode="x unified"
 )
 
-st.plotly_chart(fig, use_container_width=True)
-from datetime import datetime
-import pandas as pd
+from datetime import datetime, timedelta
 
+import pandas as pd
+import pytz
 
 from datetime import datetime, timedelta
 
-def add_trading_hours_annotations(fig, ticker):
-    """
-    Adds local IST trading hours (open/close) markers, shaded trading session,
-    and IST hover formatting to the Plotly chart depending on whether the ticker
-    is NSE/BSE or US.
-    """
+IST = pytz.timezone("Asia/Kolkata")
+ET = pytz.timezone("America/New_York")
 
+
+def add_trading_hours_annotations(fig, ticker):
+
+    now_ist = datetime.now(IST)
+
+    # -----------------------------
+    # NSE / BSE
+    # -----------------------------
     if ticker.endswith(".NS") or ticker.endswith(".BO"):
-        # NSE/BSE timings (IST)
-        open_time = datetime.now().replace(hour=9, minute=15, second=0, microsecond=0)
-        close_time = datetime.now().replace(hour=15, minute=30, second=0, microsecond=0)
+
+        open_time = now_ist.replace(
+            hour=9,
+            minute=15,
+            second=0,
+            microsecond=0
+        )
+
+        close_time = now_ist.replace(
+            hour=15,
+            minute=30,
+            second=0,
+            microsecond=0
+        )
+
         market_label = "NSE/BSE (IST)"
+
+    # -----------------------------
+    # US Stocks (NASDAQ / NYSE)
+    # -----------------------------
     else:
-        # US market timings converted to IST
-        open_time = datetime.now().replace(hour=19, minute=0, second=0, microsecond=0)
-        close_time = datetime.now().replace(hour=1, minute=30, second=0, microsecond=0) + timedelta(days=1)
+
+        # Current US date
+        now_et = datetime.now(ET)
+
+        market_open_et = now_et.replace(
+            hour=9,
+            minute=30,
+            second=0,
+            microsecond=0
+        )
+
+        market_close_et = now_et.replace(
+            hour=16,
+            minute=0,
+            second=0,
+            microsecond=0
+        )
+
+        # Convert ET -> IST
+        open_time = market_open_et.astimezone(IST)
+        close_time = market_close_et.astimezone(IST)
+
         market_label = "NYSE/NASDAQ (IST)"
 
-    # Hover shows IST time
+    # -----------------------------
+    # Hover
+    # -----------------------------
     fig.update_traces(
-        hovertemplate="Date (IST): %{x|%Y-%m-%d %H:%M}<br>Price: $%{y:.2f}"
+        hovertemplate=
+        "Date (IST): %{x|%Y-%m-%d %H:%M}"
+        "<br>Price: $%{y:.2f}"
+        "<extra></extra>"
     )
 
-    # Vertical lines
+    # -----------------------------
+    # Open Line
+    # -----------------------------
     fig.add_vline(
         x=open_time,
         line_dash="dash",
         line_color="green",
-        annotation_text=f"Market Open {market_label}",
+        annotation_text=f"Open {market_label}",
         annotation_position="top left"
     )
+
+    # -----------------------------
+    # Close Line
+    # -----------------------------
     fig.add_vline(
         x=close_time,
         line_dash="dash",
         line_color="red",
-        annotation_text=f"Market Close {market_label}",
+        annotation_text=f"Close {market_label}",
         annotation_position="top right"
     )
 
-    # Shaded trading session
+    # -----------------------------
+    # Trading Session Shade
+    # -----------------------------
     fig.add_vrect(
         x0=open_time,
         x1=close_time,
-        fillcolor="rgba(0, 255, 0, 0.1)",
+        fillcolor="rgba(0,255,0,0.08)",
         layer="below",
         line_width=0,
-        annotation_text=f"Trading Session {market_label}",
-        annotation_position="top center"
     )
 
     return fig
