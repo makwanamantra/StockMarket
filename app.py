@@ -387,30 +387,24 @@ def add_trading_hours_annotations(fig, ticker):
     # Open Line
     # -----------------------------
     fig.add_vline(
-        x=open_time,
+        x=open_time.isoformat(),   # ✅ convert datetime to string
         line_dash="dash",
         line_color="green",
         annotation_text=f"Open {market_label}",
         annotation_position="top left"
     )
-
-    # -----------------------------
-    # Close Line
-    # -----------------------------
+    
     fig.add_vline(
-        x=close_time,
+        x=close_time.isoformat(),  # ✅ convert datetime to string
         line_dash="dash",
         line_color="red",
         annotation_text=f"Close {market_label}",
         annotation_position="top right"
     )
-
-    # -----------------------------
-    # Trading Session Shade
-    # -----------------------------
+    
     fig.add_vrect(
-        x0=open_time,
-        x1=close_time,
+        x0=open_time.isoformat(),  # ✅ convert datetime to string
+        x1=close_time.isoformat(),
         fillcolor="rgba(0,255,0,0.08)",
         layer="below",
         line_width=0,
