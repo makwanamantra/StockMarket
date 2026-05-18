@@ -7,7 +7,16 @@ import plotly.graph_objects as go
 import json
 import os
 import bcrypt
+
 from datetime import datetime, timedelta
+
+import pandas as pd
+import pytz
+
+
+
+IST = pytz.timezone("Asia/Kolkata")
+ET = pytz.timezone("America/New_York")
 
 from xgboost import XGBRegressor
 from sklearn.preprocessing import MinMaxScaler
@@ -286,7 +295,7 @@ fig.add_trace(go.Scatter(
 
 # Current live price marker
 fig.add_trace(go.Scatter(
-    x=[datetime.now()],
+    x=[datetime.now(IST)],
     y=[stock_data["current_price"]],
     mode="markers+text",
     text=["Live Price"],
@@ -309,15 +318,6 @@ fig.update_layout(
     hovermode="x unified"
 )
 
-from datetime import datetime, timedelta
-
-import pandas as pd
-import pytz
-
-from datetime import datetime, timedelta
-
-IST = pytz.timezone("Asia/Kolkata")
-ET = pytz.timezone("America/New_York")
 
 
 def add_trading_hours_annotations(fig, ticker):
