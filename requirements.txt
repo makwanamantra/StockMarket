@@ -11,3 +11,4 @@ uuid
 yahooquery
 beautifulsoup4
 requests
+streamlit-autorefresh
