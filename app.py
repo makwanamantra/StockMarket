@@ -8,6 +8,7 @@ import json
 import os
 import bcrypt
 from datetime import datetime
+import pytz
 
 from xgboost import XGBRegressor
 from sklearn.preprocessing import MinMaxScaler
@@ -168,7 +169,7 @@ def analyze_stock(ticker):
 
     future_price = float(model.predict(X_scaled[-1].reshape(1, -1))[0])
 
-    # Live intraday price (safe scalar extraction)
+    # Live intraday price
     try:
         intraday_data = yf.download(ticker, period="1d", interval="1m", auto_adjust=True, progress=False)
         if intraday_data is not None and not intraday_data.empty and "Close" in intraday_data:
@@ -267,6 +268,10 @@ if st.button("Buy Stock"):
 st.subheader("Prediction Graph")
 fig = go.Figure()
 
+# Convert index to IST
+ist = pytz.timezone("Asia/Kolkata")
+stock_data["data"].index = stock_data["data"].index.tz_localize("UTC").tz_convert(ist)
+
 # Actual close prices
 fig.add_trace(go.Scatter(
     x=stock_data["data"].index,
@@ -286,7 +291,7 @@ fig.add_trace(go.Scatter(
 
 # Current live price marker
 fig.add_trace(go.Scatter(
-    x=[datetime.now()],
+    x=[datetime.now(pytz.UTC).astimezone(ist)],
     y=[stock_data["current_price"]],
     mode="markers+text",
     text=["Live Price"],
@@ -300,7 +305,7 @@ fig.update_layout(
     template="plotly_dark",
     height=500,
     xaxis=dict(
-        title="Date/Time",
+        title="Date/Time (IST)",
         showspikes=True,
         spikemode="across",
         tickformat="%Y-%m-%d %H:%M"
@@ -311,10 +316,6 @@ fig.update_layout(
 
 st.plotly_chart(fig, use_container_width=True)
 
-
-# ============================================
-# PORTFOLIO
-# ============================================
 # ============================================
 # PORTFOLIO
 # ============================================
@@ -334,13 +335,11 @@ if user in portfolio and portfolio[user]:
             )
 
             if intraday_data is not None and not intraday_data.empty and "Close" in intraday_data:
-                # ✅ Always extract scalar safely
-                latest_price = float(intraday_data["Close"].dropna().values[-1])
+                latest_price = float(intraday_data["Close"].dropna().iloc[-1])
             else:
                 latest_price = float(item["buy_price"])  # fallback
 
         except Exception:
-            # ✅ Safe fallback if error occurs
             latest_price = float(item["buy_price"])
 
         current_value = latest_price * item["shares"]
@@ -374,5 +373,3 @@ if user in portfolio and portfolio[user]:
         st.info("Portfolio loaded, but no valid price data.")
 else:
     st.info("No stocks purchased yet")
-
-
