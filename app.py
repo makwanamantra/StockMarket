@@ -7,16 +7,7 @@ import plotly.graph_objects as go
 import json
 import os
 import bcrypt
-
-from datetime import datetime, timedelta
-
-import pandas as pd
-import pytz
-
-
-
-IST = pytz.timezone("Asia/Kolkata")
-ET = pytz.timezone("America/New_York")
+from datetime import datetime
 
 from xgboost import XGBRegressor
 from sklearn.preprocessing import MinMaxScaler
@@ -295,7 +286,7 @@ fig.add_trace(go.Scatter(
 
 # Current live price marker
 fig.add_trace(go.Scatter(
-    x=[datetime.now(IST)],
+    x=[datetime.now()],
     y=[stock_data["current_price"]],
     mode="markers+text",
     text=["Live Price"],
@@ -318,172 +309,70 @@ fig.update_layout(
     hovermode="x unified"
 )
 
-
-
-def add_trading_hours_annotations(fig, ticker):
-
-    now_ist = datetime.now(IST)
-
-    # -----------------------------
-    # NSE / BSE
-    # -----------------------------
-    if ticker.endswith(".NS") or ticker.endswith(".BO"):
-
-        open_time = now_ist.replace(
-            hour=9,
-            minute=15,
-            second=0,
-            microsecond=0
-        )
-
-        close_time = now_ist.replace(
-            hour=15,
-            minute=30,
-            second=0,
-            microsecond=0
-        )
-
-        market_label = "NSE/BSE (IST)"
-
-    # -----------------------------
-    # US Stocks (NASDAQ / NYSE)
-    # -----------------------------
-    else:
-
-        # Current US date
-        now_et = datetime.now(ET)
-
-        market_open_et = now_et.replace(
-            hour=9,
-            minute=30,
-            second=0,
-            microsecond=0
-        )
-
-        market_close_et = now_et.replace(
-            hour=16,
-            minute=0,
-            second=0,
-            microsecond=0
-        )
-
-        # Convert ET -> IST
-        open_time = market_open_et.astimezone(IST)
-        close_time = market_close_et.astimezone(IST)
-
-        market_label = "NYSE/NASDAQ (IST)"
-
-    # -----------------------------
-    # Hover
-    # -----------------------------
-    fig.update_traces(
-        hovertemplate=
-        "Date (IST): %{x|%Y-%m-%d %H:%M}"
-        "<br>Price: $%{y:.2f}"
-        "<extra></extra>"
-    )
-
-    # -----------------------------
-    # Open Line
-    # -----------------------------
-    fig.add_vline(
-        x=open_time.isoformat(),   # ✅ convert datetime to string
-        line_dash="dash",
-        line_color="green",
-        annotation_text=f"Open {market_label}",
-        annotation_position="top left"
-    )
-    
-    fig.add_vline(
-        x=close_time.isoformat(),  # ✅ convert datetime to string
-        line_dash="dash",
-        line_color="red",
-        annotation_text=f"Close {market_label}",
-        annotation_position="top right"
-    )
-    
-    fig.add_vrect(
-        x0=open_time.isoformat(),  # ✅ convert datetime to string
-        x1=close_time.isoformat(),
-        fillcolor="rgba(0,255,0,0.08)",
-        layer="below",
-        line_width=0,
-    )
-
-    return fig
- 
-# Add trading hours overlay + IST hover
-fig = add_trading_hours_annotations(fig, stocks[selected_stock])
-
-# Show chart
 st.plotly_chart(fig, use_container_width=True)
-
 
 
 # ============================================
 # PORTFOLIO
 # ============================================
+# ============================================
+# PORTFOLIO
+# ============================================
+st.subheader("My Portfolio")
+portfolio = safe_load_json(PORTFOLIO_FILE)
+user = st.session_state.username
 
-# Calculate profit/loss for each stock
-for item in portfolio[user]:
+if user in portfolio and portfolio[user]:
+    portfolio_data = []
+    total_profit = 0
 
-    try:
-        intraday_data = yf.download(
-            item["ticker"],
-            period="1d",
-            interval="1m",
-            auto_adjust=True,
-            progress=False
-        )
-
-        # Safe extraction of latest close price
-        if (
-            intraday_data is not None
-            and not intraday_data.empty
-            and "Close" in intraday_data.columns
-        ):
-            latest_price = float(
-                pd.to_numeric(
-                    intraday_data["Close"],
-                    errors="coerce"
-                ).dropna().iloc[-1]
+    for item in portfolio[user]:
+        try:
+            intraday_data = yf.download(
+                item["ticker"], period="1d", interval="1m",
+                auto_adjust=True, progress=False
             )
+
+            if intraday_data is not None and not intraday_data.empty and "Close" in intraday_data:
+                # ✅ Always extract scalar safely
+                latest_price = float(intraday_data["Close"].dropna().values[-1])
+            else:
+                latest_price = float(item["buy_price"])  # fallback
+
+        except Exception:
+            # ✅ Safe fallback if error occurs
+            latest_price = float(item["buy_price"])
+
+        current_value = latest_price * item["shares"]
+        profit_loss = current_value - item["investment"]
+        total_profit += profit_loss
+
+        portfolio_data.append({
+            "Stock": item["stock"],
+            "Investment": round(item["investment"], 2),
+            "Buy Price": round(item["buy_price"], 2),
+            "Predicted Price": round(item["predicted_price"], 2),
+            "Current Price": round(latest_price, 2),
+            "Current Value": round(current_value, 2),
+            "Profit/Loss": round(profit_loss, 2),
+            "Date Bought": item["date"]
+        })
+
+    if portfolio_data:
+        df = pd.DataFrame(portfolio_data)
+        st.dataframe(df, use_container_width=True)
+
+        if total_profit > 0:
+            st.success(f"Total Profit: ${total_profit:.2f}")
+        elif total_profit < 0:
+            st.error(f"Total Loss: ${abs(total_profit):.2f}")
         else:
-            latest_price = float(item["predicted_price"])
+            st.info("Portfolio is at break-even")
 
-    except Exception as e:
-        st.warning(f"Price fetch failed for {item['stock']}: {e}")
-        latest_price = float(item["predicted_price"])
-
-    # Safe numeric conversions
-    investment_amount = float(item["investment"])
-    shares_owned = float(item["shares"])
-    buy_price = float(item["buy_price"])
-    predicted_price = float(item["predicted_price"])
-
-    current_value = latest_price * shares_owned
-    profit_loss = current_value - investment_amount
-
-    total_profit += profit_loss
-
-    # Safe date formatting
-    try:
-        date_bought = pd.to_datetime(item["date"]).strftime("%Y-%m-%d %H:%M:%S")
-    except Exception:
-        date_bought = str(item["date"])
-
-    portfolio_data.append({
-        "Stock": item["stock"],
-        "Investment": round(investment_amount, 2),
-        "Buy Price": round(buy_price, 2),
-        "Predicted Price": round(predicted_price, 2),
-        "Current Price": round(latest_price, 2),
-        "Current Value": round(current_value, 2),
-        "Profit/Loss": round(profit_loss, 2),
-        "Date Bought": date_bought
-    })
-
-
-
+        st.download_button("Download Portfolio", df.to_csv(index=False), "portfolio.csv")
+    else:
+        st.info("Portfolio loaded, but no valid price data.")
+else:
+    st.info("No stocks purchased yet")
 
 
