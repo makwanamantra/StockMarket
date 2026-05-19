@@ -9,6 +9,8 @@ import os
 import bcrypt
 from datetime import datetime
 import pytz
+import uuid
+
 
 from xgboost import XGBRegressor
 from sklearn.preprocessing import MinMaxScaler
@@ -245,12 +247,15 @@ c1.metric("Current Price", f"${current_price:.2f}")
 c2.metric("Predicted Price", f"${future_price:.2f}")
 c3.metric("Predicted Profit", f"${profit:.2f}")
 
+import uuid  # make sure this is at the top of your file
+
 if st.button("Buy Stock"):
     portfolio = safe_load_json(PORTFOLIO_FILE)
     user = st.session_state.username
     if user not in portfolio:
         portfolio[user] = []
     portfolio[user].append({
+        "id": str(uuid.uuid4()),   # ✅ unique random ID
         "stock": selected_stock,
         "ticker": stocks[selected_stock],
         "investment": investment,
@@ -261,6 +266,7 @@ if st.button("Buy Stock"):
     })
     save_json(PORTFOLIO_FILE, portfolio)
     st.success("Stock purchased!")
+    st.rerun()  # refresh immediately so portfolio updates
 
 # ============================================
 # CHART
@@ -327,18 +333,26 @@ if user in portfolio and portfolio[user]:
     portfolio_data = []
     total_profit = 0
 
+    # Ensure every item has an ID
+    updated = False
+    for item in portfolio[user]:
+        if "id" not in item:
+            item["id"] = str(uuid.uuid4())
+            updated = True
+
+    if updated:
+        save_json(PORTFOLIO_FILE, portfolio)
+
     for item in portfolio[user]:
         try:
             intraday_data = yf.download(
                 item["ticker"], period="1d", interval="1m",
                 auto_adjust=True, progress=False
             )
-
             if intraday_data is not None and not intraday_data.empty and "Close" in intraday_data:
                 latest_price = float(intraday_data["Close"].dropna().iloc[-1])
             else:
-                latest_price = float(item["buy_price"])  # fallback
-
+                latest_price = float(item["buy_price"])
         except Exception:
             latest_price = float(item["buy_price"])
 
@@ -347,6 +361,7 @@ if user in portfolio and portfolio[user]:
         total_profit += profit_loss
 
         portfolio_data.append({
+            "ID": item["id"],
             "Stock": item["stock"],
             "Investment": round(item["investment"], 2),
             "Buy Price": round(item["buy_price"], 2),
@@ -360,6 +375,14 @@ if user in portfolio and portfolio[user]:
     if portfolio_data:
         df = pd.DataFrame(portfolio_data)
         st.dataframe(df, use_container_width=True)
+
+        # Delete stock by ID
+        delete_id = st.text_input("Enter Stock ID to Delete")
+        if st.button("Delete Stock"):
+            portfolio[user] = [i for i in portfolio[user] if i.get("id") != delete_id]
+            save_json(PORTFOLIO_FILE, portfolio)
+            st.success(f"Stock with ID {delete_id} deleted.")
+            st.rerun()
 
         if total_profit > 0:
             st.success(f"Total Profit: ${total_profit:.2f}")
