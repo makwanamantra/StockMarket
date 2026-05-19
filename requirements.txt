@@ -1,8 +1,13 @@
 streamlit
 yfinance
-ta
-xgboost
+pandas
 plotly
-scikit-learn
+ta
 bcrypt
-streamlit-autorefresh
+xgboost
+scikit-learn
+pytz
+uuid
+yahooquery
+beautifulsoup4
+requests
