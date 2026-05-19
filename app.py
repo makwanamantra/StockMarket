@@ -10,6 +10,21 @@ import bcrypt
 from datetime import datetime
 import pytz
 import uuid
+import requests
+from bs4 import BeautifulSoup
+from yahooquery import Ticker
+aapl = Ticker("AAPL")
+print(aapl.price["AAPL"]["regularMarketPrice"])
+
+url = "https://finance.yahoo.com/quote/AAPL"
+r = requests.get(url, headers={"User-Agent": "Mozilla/5.0"})
+soup = BeautifulSoup(r.text, "html.parser")
+tag = soup.find("fin-streamer", {"data-field": "regularMarketPrice"})
+if tag:
+    price = tag.text
+    print("Live Price:", price)
+else:
+    print("Could not find live price on page")
 
 
 from xgboost import XGBRegressor
@@ -268,45 +283,75 @@ if st.button("Buy Stock"):
     st.success("Stock purchased!")
     st.rerun()  # refresh immediately so portfolio updates
 
+
 # ============================================
-# CHART
+# CHARTS
 # ============================================
 st.subheader("Prediction Graph")
 fig = go.Figure()
 
 # Convert index to IST
 ist = pytz.timezone("Asia/Kolkata")
-stock_data["data"].index = stock_data["data"].index.tz_localize("UTC").tz_convert(ist)
+us_eastern = pytz.timezone("US/Eastern")
+
+# Ensure index has timezone
+if stock_data["data"].index.tz is None:
+    stock_data["data"].index = stock_data["data"].index.tz_localize("UTC")
+
+# Add both IST and US Eastern time columns for clarity
+stock_data["data"]["IST"] = stock_data["data"].index.tz_convert(ist)
+stock_data["data"]["US_Eastern"] = stock_data["data"].index.tz_convert(us_eastern)
 
 # Actual close prices
 fig.add_trace(go.Scatter(
-    x=stock_data["data"].index,
+    x=stock_data["data"]["IST"],
     y=stock_data["data"]["Close"],
     name="Actual Close",
-    hovertemplate="Date: %{x|%Y-%m-%d %H:%M}<br>Price: $%{y:.2f}"
+    line=dict(color="cyan"),
+    hovertemplate="IST: %{x|%Y-%m-%d %H:%M}<br>Price: $%{y:.2f}"
 ))
 
 # Full predicted prices
 fig.add_trace(go.Scatter(
-    x=stock_data["data"].index,
+    x=stock_data["data"]["IST"],
     y=stock_data["full_pred"],
     name="Predicted (Full)",
-    line=dict(dash="dot"),
-    hovertemplate="Date: %{x|%Y-%m-%d %H:%M}<br>Predicted: $%{y:.2f}"
+    line=dict(dash="dot", color="orange"),
+    hovertemplate="IST: %{x|%Y-%m-%d %H:%M}<br>Predicted: $%{y:.2f}"
 ))
 
-# Current live price marker
+# Difference line
+diff = stock_data["data"]["Close"] - stock_data["full_pred"]
 fig.add_trace(go.Scatter(
-    x=[datetime.now(pytz.UTC).astimezone(ist)],
+    x=stock_data["data"]["IST"],
+    y=diff,
+    name="Difference (Actual - Predicted)",
+    line=dict(color="red", dash="dash"),
+    hovertemplate="IST: %{x|%Y-%m-%d %H:%M}<br>Diff: $%{y:.2f}"
+))
+
+# Current live price marker (IST + US Eastern shown in hover)
+now_utc = datetime.now(pytz.UTC)
+now_ist = now_utc.astimezone(ist)
+now_us = now_utc.astimezone(us_eastern)
+
+fig.add_trace(go.Scatter(
+    x=[now_ist],
     y=[stock_data["current_price"]],
     mode="markers+text",
-    text=["Live Price"],
+    text=[f"Live Price ({now_us.strftime('%Y-%m-%d %H:%M')} US)"],
     textposition="top center",
     name="Live Price",
-    marker=dict(color="red", size=12),
-    hovertemplate="Live Price<br>Date: %{x|%Y-%m-%d %H:%M}<br>Price: $%{y:.2f}"
+    marker=dict(color="lime", size=12, line=dict(color="black", width=1)),
+    hovertemplate=(
+        "Live Price<br>"
+        "IST: %{x|%Y-%m-%d %H:%M}<br>"
+        f"US Eastern: {now_us.strftime('%Y-%m-%d %H:%M')}<br>"
+        "Price: $%{y:.2f}"
+    )
 ))
 
+# Layout
 fig.update_layout(
     template="plotly_dark",
     height=500,
@@ -321,6 +366,7 @@ fig.update_layout(
 )
 
 st.plotly_chart(fig, use_container_width=True)
+
 
 # ============================================
 # PORTFOLIO
@@ -396,3 +442,4 @@ if user in portfolio and portfolio[user]:
         st.info("Portfolio loaded, but no valid price data.")
 else:
     st.info("No stocks purchased yet")
+
