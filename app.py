@@ -277,7 +277,7 @@ if st.button("Buy Stock"):
 st.subheader("Prediction Graph")
 fig = go.Figure()
 
-# Convert index to IST
+# Timezones
 ist = pytz.timezone("Asia/Kolkata")
 us_eastern = pytz.timezone("US/Eastern")
 
@@ -285,7 +285,7 @@ us_eastern = pytz.timezone("US/Eastern")
 if stock_data["data"].index.tz is None:
     stock_data["data"].index = stock_data["data"].index.tz_localize("UTC")
 
-# Add both IST and US Eastern time columns for clarity
+# Add IST + US Eastern columns
 stock_data["data"]["IST"] = stock_data["data"].index.tz_convert(ist)
 stock_data["data"]["US_Eastern"] = stock_data["data"].index.tz_convert(us_eastern)
 
@@ -295,7 +295,7 @@ fig.add_trace(go.Scatter(
     y=stock_data["data"]["Close"],
     name="Actual Close",
     line=dict(color="cyan"),
-    hovertemplate="IST: %{x|%Y-%m-%d %H:%M}<br>Price: $%{y:.2f}"
+    hovertemplate="IST: %{x|%Y-%m-%d %H:%M:%S}<br>Price: $%{y:.2f}"
 ))
 
 # Full predicted prices
@@ -304,7 +304,7 @@ fig.add_trace(go.Scatter(
     y=stock_data["full_pred"],
     name="Predicted (Full)",
     line=dict(dash="dot", color="orange"),
-    hovertemplate="IST: %{x|%Y-%m-%d %H:%M}<br>Predicted: $%{y:.2f}"
+    hovertemplate="IST: %{x|%Y-%m-%d %H:%M:%S}<br>Predicted: $%{y:.2f}"
 ))
 
 # Difference line
@@ -314,26 +314,28 @@ fig.add_trace(go.Scatter(
     y=diff,
     name="Difference (Actual - Predicted)",
     line=dict(color="red", dash="dash"),
-    hovertemplate="IST: %{x|%Y-%m-%d %H:%M}<br>Diff: $%{y:.2f}"
+    hovertemplate="IST: %{x|%Y-%m-%d %H:%M:%S}<br>Diff: $%{y:.2f}"
 ))
 
-# Current live price marker (IST + US Eastern shown in hover)
+# Current live price marker
 now_utc = datetime.now(pytz.UTC)
 now_ist = now_utc.astimezone(ist)
 now_us = now_utc.astimezone(us_eastern)
 
+live_price = get_live_price(stocks[selected_stock], fallback_price=current_price)
+
 fig.add_trace(go.Scatter(
     x=[now_ist],
-    y=[stock_data["current_price"]],
+    y=[live_price],
     mode="markers+text",
-    text=[f"Live Price ({now_us.strftime('%Y-%m-%d %H:%M')} US)"],
+    text=[f"Live Price ({now_us.strftime('%Y-%m-%d %I:%M %p')} US)"],
     textposition="top center",
     name="Live Price",
     marker=dict(color="lime", size=12, line=dict(color="black", width=1)),
     hovertemplate=(
         "Live Price<br>"
-        "IST: %{x|%Y-%m-%d %H:%M}<br>"
-        f"US Eastern: {now_us.strftime('%Y-%m-%d %H:%M')}<br>"
+        f"IST: {now_ist.strftime('%Y-%m-%d %H:%M:%S')}<br>"
+        f"US Eastern: {now_us.strftime('%Y-%m-%d %I:%M %p')}<br>"
         "Price: $%{y:.2f}"
     )
 ))
@@ -346,14 +348,13 @@ fig.update_layout(
         title="Date/Time (IST)",
         showspikes=True,
         spikemode="across",
-        tickformat="%Y-%m-%d %H:%M"
+        tickformat="%Y-%m-%d %H:%M:%S"
     ),
     yaxis_title="Price (USD)",
     hovermode="x unified"
 )
 
 st.plotly_chart(fig, use_container_width=True)
-
 
 # ============================================
 # PORTFOLIO
