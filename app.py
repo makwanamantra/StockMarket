@@ -306,10 +306,6 @@ if st.button("Buy Stock"):
 # CHARTS
 # ============================================
 
-# ============================================
-# CHARTS
-# ============================================
-
 st.subheader("Prediction Graph")
 fig = go.Figure()
 
@@ -362,7 +358,8 @@ now_us = now_utc.astimezone(us_eastern)
 fallback = float(stock_data["data"]["Close"].iloc[-1]) if not stock_data["data"]["Close"].empty else None
 live_price = get_live_price(stocks[selected_stock], fallback_price=fallback)
 
-if live_price and 0 < live_price < 10000:  # sanity filter
+# Only plot if the live price is realistic
+if live_price and 0 < live_price < 1000:
     fig.add_trace(go.Scatter(
         x=[now_ist],
         y=[live_price],
