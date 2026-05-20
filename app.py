@@ -172,15 +172,10 @@ def analyze_stock(ticker):
 
     future_price = float(model.predict(X_scaled[-1].reshape(1, -1))[0])
 
-    # Live intraday price
-    try:
-        intraday_data = yf.download(ticker, period="1d", interval="1m", auto_adjust=True, progress=False)
-        if intraday_data is not None and not intraday_data.empty and "Close" in intraday_data:
-            live_price = float(intraday_data["Close"].dropna().iloc[-1])
-        else:
-            live_price = float(close.iloc[-1])
-    except Exception:
-        live_price = float(close.iloc[-1])
+
+    # Live price (YahooQuery + fallback)
+    live_price = get_live_price(ticker, fallback_price=close.iloc[-1])
+
 
     volatility = float(close.pct_change().std())
     risk = "LOW" if volatility < 0.015 else "MODERATE" if volatility < 0.03 else "HIGH"
@@ -249,7 +244,6 @@ c1.metric("Current Price", f"${current_price:.2f}")
 c2.metric("Predicted Price", f"${future_price:.2f}")
 c3.metric("Predicted Profit", f"${profit:.2f}")
 
-import uuid  # make sure this is at the top of your file
 
 if st.button("Buy Stock"):
     portfolio = safe_load_json(PORTFOLIO_FILE)
@@ -282,7 +276,6 @@ def get_live_price(ticker: str, fallback_price: float = None) -> float:
     2. Yahoo Finance scraping
     3. Fallback to last known price
     """
-    # --- Try YahooQuery ---
     try:
         tq = Ticker(ticker)
         price = tq.price[ticker].get("regularMarketPrice")
@@ -291,7 +284,6 @@ def get_live_price(ticker: str, fallback_price: float = None) -> float:
     except Exception:
         pass
 
-    # --- Try scraping Yahoo Finance ---
     try:
         url = f"https://finance.yahoo.com/quote/{ticker}"
         r = requests.get(url, headers={"User-Agent": "Mozilla/5.0"})
@@ -302,11 +294,10 @@ def get_live_price(ticker: str, fallback_price: float = None) -> float:
     except Exception:
         pass
 
-    # --- Fallback ---
     if fallback_price is not None:
         return float(fallback_price)
 
-    return 
+    return None
 st.subheader("Prediction Graph")
 fig = go.Figure()
 
@@ -355,7 +346,8 @@ now_utc = datetime.now(pytz.UTC)
 now_ist = now_utc.astimezone(ist)
 now_us = now_utc.astimezone(us_eastern)
 
-live_price = get_live_price(stocks[selected_stock], fallback_price=current_price)
+live_price = get_live_price(ticker, fallback_price=close.iloc[-1])
+
 
 fig.add_trace(go.Scatter(
     x=[now_ist],
@@ -417,7 +409,8 @@ if user in portfolio and portfolio[user]:
                 auto_adjust=True, progress=False
             )
             if intraday_data is not None and not intraday_data.empty and "Close" in intraday_data:
-                latest_price = float(intraday_data["Close"].dropna().iloc[-1])
+                latest_price = get_live_price(item["ticker"], fallback_price=item["buy_price"])
+
             else:
                 latest_price = float(item["buy_price"])
         except Exception:
