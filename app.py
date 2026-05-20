@@ -306,6 +306,10 @@ if st.button("Buy Stock"):
 # CHARTS
 # ============================================
 
+# ============================================
+# CHARTS
+# ============================================
+
 st.subheader("Prediction Graph")
 fig = go.Figure()
 
@@ -354,28 +358,26 @@ now_utc = datetime.now(pytz.UTC)
 now_ist = now_utc.astimezone(ist)
 now_us = now_utc.astimezone(us_eastern)
 
-live_price = get_live_price(
-    stocks[selected_stock], 
-    fallback_price=stock_data["data"]["Close"].iloc[-1]
-)
+# ✅ Safe live price fetch with sanity check
+fallback = float(stock_data["data"]["Close"].iloc[-1]) if not stock_data["data"]["Close"].empty else None
+live_price = get_live_price(stocks[selected_stock], fallback_price=fallback)
 
-
-
-fig.add_trace(go.Scatter(
-    x=[now_ist],
-    y=[live_price],
-    mode="markers+text",
-    text=[f"Live Price ({now_us.strftime('%Y-%m-%d %I:%M %p')} US)"],
-    textposition="top center",
-    name="Live Price",
-    marker=dict(color="lime", size=12, line=dict(color="black", width=1)),
-    hovertemplate=(
-        "Live Price<br>"
-        f"IST: {now_ist.strftime('%Y-%m-%d %H:%M:%S')}<br>"
-        f"US Eastern: {now_us.strftime('%Y-%m-%d %I:%M %p')}<br>"
-        "Price: $%{y:.2f}"
-    )
-))
+if live_price and 0 < live_price < 10000:  # sanity filter
+    fig.add_trace(go.Scatter(
+        x=[now_ist],
+        y=[live_price],
+        mode="markers+text",
+        text=[f"Live Price ({now_us.strftime('%Y-%m-%d %I:%M %p')} US)"],
+        textposition="top center",
+        name="Live Price",
+        marker=dict(color="lime", size=12, line=dict(color="black", width=1)),
+        hovertemplate=(
+            "Live Price<br>"
+            f"IST: {now_ist.strftime('%Y-%m-%d %H:%M:%S')}<br>"
+            f"US Eastern: {now_us.strftime('%Y-%m-%d %I:%M %p')}<br>"
+            "Price: $%{y:.2f}"
+        )
+    ))
 
 # Layout
 fig.update_layout(
