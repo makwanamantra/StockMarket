@@ -203,8 +203,14 @@ def analyze_stock(ticker):
     future_price = float(model.predict(X_scaled[-1].reshape(1, -1))[0])
 
 
+
     # Live price (YahooQuery + fallback)
-    live_price = get_live_price(stocks[selected_stock], fallback_price=stock_data["data"]["Close"].iloc[-1])
+
+    fallback = float(close.iloc[-1]) if not close.empty else None
+    live_price = get_live_price(ticker, fallback_price=fallback)
+
+
+
 
 
 
@@ -348,7 +354,11 @@ now_utc = datetime.now(pytz.UTC)
 now_ist = now_utc.astimezone(ist)
 now_us = now_utc.astimezone(us_eastern)
 
-live_price = get_live_price(ticker, fallback_price=close.iloc[-1])
+live_price = get_live_price(
+    stocks[selected_stock], 
+    fallback_price=stock_data["data"]["Close"].iloc[-1]
+)
+
 
 
 fig.add_trace(go.Scatter(
