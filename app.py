@@ -204,7 +204,8 @@ def analyze_stock(ticker):
 
 
     # Live price (YahooQuery + fallback)
-    live_price = get_live_price(ticker, fallback_price=close.iloc[-1])
+    live_price = get_live_price(stocks[selected_stock], fallback_price=stock_data["data"]["Close"].iloc[-1])
+
 
 
     volatility = float(close.pct_change().std())
