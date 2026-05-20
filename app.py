@@ -298,36 +298,7 @@ if st.button("Buy Stock"):
 # ============================================
 # CHARTS
 # ============================================
-def get_live_price(ticker: str, fallback_price: float = None) -> float:
-    """
-    Get the current live market price for a stock ticker.
-    Priority:
-    1. YahooQuery API
-    2. Yahoo Finance scraping
-    3. Fallback to last known price
-    """
-    try:
-        tq = Ticker(ticker)
-        price = tq.price[ticker].get("regularMarketPrice")
-        if price is not None:
-            return float(price)
-    except Exception:
-        pass
 
-    try:
-        url = f"https://finance.yahoo.com/quote/{ticker}"
-        r = requests.get(url, headers={"User-Agent": "Mozilla/5.0"})
-        soup = BeautifulSoup(r.text, "html.parser")
-        tag = soup.find("fin-streamer", {"data-field": "regularMarketPrice"})
-        if tag and tag.text:
-            return float(tag.text.replace(",", ""))
-    except Exception:
-        pass
-
-    if fallback_price is not None:
-        return float(fallback_price)
-
-    return None
 st.subheader("Prediction Graph")
 fig = go.Figure()
 
