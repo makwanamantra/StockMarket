@@ -1,5 +1,5 @@
-from streamlit_autorefresh import st_autorefresh
 import streamlit as st
+from streamlit_autorefresh import st_autorefresh
 import yfinance as yf
 import pandas as pd
 import ta
@@ -13,20 +13,6 @@ import uuid
 import requests
 from bs4 import BeautifulSoup
 from yahooquery import Ticker
-aapl = Ticker("AAPL")
-print(aapl.price["AAPL"]["regularMarketPrice"])
-
-url = "https://finance.yahoo.com/quote/AAPL"
-r = requests.get(url, headers={"User-Agent": "Mozilla/5.0"})
-soup = BeautifulSoup(r.text, "html.parser")
-tag = soup.find("fin-streamer", {"data-field": "regularMarketPrice"})
-if tag:
-    price = tag.text
-    print("Live Price:", price)
-else:
-    print("Could not find live price on page")
-
-
 from xgboost import XGBRegressor
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
@@ -209,6 +195,7 @@ def analyze_stock(ticker):
         "accuracy": accuracy,
         "risk": risk
     }
+
 
 # ============================================
 # LOAD RESULTS
