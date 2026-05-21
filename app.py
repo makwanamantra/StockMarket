@@ -129,37 +129,48 @@ def analyze_stock(ticker):
         st.warning(f"Error fetching {ticker}: {e}")
         return None
 
-    if daily_data is None or daily_data.empty:
-        return None
-
-    # Ensure Close column
-    if "Close" not in daily_data.columns:
+    if daily_data is None or daily_data.empty or "Close" not in daily_data.columns:
         return None
 
     close = daily_data["Close"].astype(float)
-    daily_data = daily_data.dropna()
 
     # Technical indicators
     daily_data["SMA_10"] = ta.trend.sma_indicator(close, window=10)
     daily_data["SMA_50"] = ta.trend.sma_indicator(close, window=50)
     daily_data["RSI"] = ta.momentum.rsi(close, window=14)
     daily_data["MACD"] = ta.trend.macd(close)
+
+    # Drop rows with NaN values
     daily_data = daily_data.dropna()
 
     if len(daily_data) < 50:
         return None
 
-    # Features (OHLCV + indicators)
-    features = ["Open", "High", "Low", "Volume", "SMA_10", "SMA_50", "RSI", "MACD"]
-    available_features = [f for f in features if f in daily_data.columns]
-    X = daily_data[available_features]
-    y = close
+    # Align y with cleaned DataFrame
+    y = daily_data["Close"]
 
+    # Build features safely
+    base_features = [col for col in ["Open", "High", "Low", "Volume"] if col in daily_data.columns]
+    features = base_features + ["SMA_10", "SMA_50", "RSI", "MACD"]
+
+    if not base_features:
+        st.warning(f"{ticker}: OHLCV data missing, using only indicators.")
+        features = ["SMA_10", "SMA_50", "RSI", "MACD"]
+
+    X = daily_data[features]
+
+    # Debug check
+    if len(X) != len(y):
+        st.warning(f"{ticker}: Feature/target length mismatch ({len(X)} vs {len(y)}), skipping.")
+        return None
+
+    # Scale and split
     scaler = MinMaxScaler()
     X_scaled = scaler.fit_transform(X)
 
     X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, shuffle=False)
 
+    # Train model
     model = XGBRegressor(n_estimators=100, learning_rate=0.1, max_depth=3, random_state=42)
     model.fit(X_train, y_train)
 
@@ -186,6 +197,7 @@ def analyze_stock(ticker):
         "accuracy": accuracy,
         "risk": risk
     }
+
 
 def get_live_price(ticker: str, fallback_price: float = None) -> float:
     """
