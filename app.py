@@ -67,7 +67,7 @@ if "username" not in st.session_state:
 # UI
 # ============================================
 st.title("AI Stock Advisor Pro")
-st_autorefresh(interval=10 * 1000, key="stock_refresh")
+st_autorefresh(interval=60 * 1000, key="stock_refresh")
 
 # ============================================
 # LOGIN
