@@ -1,2 +1,30 @@
-# StockMarket
-This is a simple Machine Learning project focused on Stock Market Prediction and Investment Suggestions. The system analyzes stock market data to predict trends and provide basic investment recommendations to help users make informed financial decisions.
+# AI Stock Advisor Pro
+AI Stock Advisor Pro is a Streamlit web application that analyzes stocks using technical indicators and machine learning. It provides live price tracking, predictions, portfolio management, and investment simulations.
+
+# Features
+Secure user authentication (signup/login with bcrypt)
+Live stock price fetching (via yfinance, YahooQuery, and scraping fallback)
+Technical indicators (SMA, RSI, MACD)
+Machine learning predictions with XGBoost
+Stock ranking based on accuracy and risk
+Investment simulation with profit/loss calculation
+Interactive prediction graphs with Plotly
+Portfolio management (buy, delete, download CSV)
+Auto-refresh for live market updates
+
+# Tech Stack
+Frontend/UI: Streamlit
+Data: yfinance, YahooQuery, requests, BeautifulSoup
+Machine Learning: XGBoost, scikit-learn
+Visualization: Plotly
+Authentication: bcrypt
+Storage: JSON files (users.json, portfolio.json)
+
+# File Structure
+.
+├── app.py                # Main Streamlit application
+├── users.json            # User authentication data
+├── portfolio.json        # Portfolio data
+├── requirements.txt      # Python dependencies
+├── Procfile              # Render deployment configuration
+└── README.md             # Project documentation
