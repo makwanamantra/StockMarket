@@ -20,7 +20,11 @@ Visualization: Plotly
 Authentication: bcrypt
 Storage: JSON files (users.json, portfolio.json)
 
-# File Structure
+## File Structure
+
+The repository is organized as follows:
+
+```
 .
 ├── app.py                # Main Streamlit application
 ├── users.json            # User authentication data
@@ -28,3 +32,4 @@ Storage: JSON files (users.json, portfolio.json)
 ├── requirements.txt      # Python dependencies
 ├── Procfile              # Render deployment configuration
 └── README.md             # Project documentation
+```
