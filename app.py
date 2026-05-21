@@ -468,4 +468,3 @@ if user in portfolio and portfolio[user]:
         st.info("Portfolio loaded, but no valid price data.")
 else:
     st.info("No stocks purchased yet")
-
