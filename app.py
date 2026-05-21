@@ -123,7 +123,8 @@ stocks = {
 
 def analyze_stock(ticker):
     try:
-        daily_data = yf.download(ticker, period="2y", interval="1d", auto_adjust=False, progress=False)
+        stock = yf.Ticker(ticker)
+        daily_data = stock.history(period="2y", interval="1d")
     except Exception as e:
         st.warning(f"Error fetching {ticker}: {e}")
         return None
@@ -131,43 +132,60 @@ def analyze_stock(ticker):
     if daily_data is None or daily_data.empty:
         return None
 
-    # Flatten MultiIndex if present
-    if isinstance(daily_data.columns, pd.MultiIndex):
-        daily_data.columns = [' '.join(col).strip() for col in daily_data.columns.values]
-
     # Ensure Close column
     if "Close" not in daily_data.columns:
-        possible_close = [c for c in daily_data.columns if "Close" in c]
-        if possible_close:
-            close = daily_data[possible_close[0]].astype(float)
-        else:
-            return None
-    else:
-        close = daily_data["Close"].astype(float)
+        return None
 
+    close = daily_data["Close"].astype(float)
     daily_data = daily_data.dropna()
 
-    # Verify OHLCV columns exist
-    required_cols = ["Open", "High", "Low", "Volume"]
-    for col in required_cols:
-        if col not in daily_data.columns:
-            st.warning(f"{ticker}: Missing {col} column, skipping.")
-            return None
-
     # Technical indicators
-    daily_data["SMA_10"] = ta.trend.sma_indicator(close.squeeze(), window=10)
-    daily_data["SMA_50"] = ta.trend.sma_indicator(close.squeeze(), window=50)
-    daily_data["RSI"] = ta.momentum.rsi(close.squeeze(), window=14)
-    daily_data["MACD"] = ta.trend.macd(close.squeeze())
+    daily_data["SMA_10"] = ta.trend.sma_indicator(close, window=10)
+    daily_data["SMA_50"] = ta.trend.sma_indicator(close, window=50)
+    daily_data["RSI"] = ta.momentum.rsi(close, window=14)
+    daily_data["MACD"] = ta.trend.macd(close)
     daily_data = daily_data.dropna()
 
     if len(daily_data) < 50:
         return None
 
+    # Features (OHLCV + indicators)
     features = ["Open", "High", "Low", "Volume", "SMA_10", "SMA_50", "RSI", "MACD"]
-    X = daily_data[features]
+    available_features = [f for f in features if f in daily_data.columns]
+    X = daily_data[available_features]
     y = close
-    ...
+
+    scaler = MinMaxScaler()
+    X_scaled = scaler.fit_transform(X)
+
+    X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, shuffle=False)
+
+    model = XGBRegressor(n_estimators=100, learning_rate=0.1, max_depth=3, random_state=42)
+    model.fit(X_train, y_train)
+
+    pred = model.predict(X_test)
+    full_pred = model.predict(X_scaled)
+    mae = mean_absolute_error(y_test, pred)
+    accuracy = max(0, 100 - (mae / y_test.mean() * 100))
+
+    future_price = float(model.predict(X_scaled[-1].reshape(1, -1))[0])
+
+    fallback = float(close.iloc[-1]) if not close.empty else None
+    live_price = get_live_price(ticker, fallback_price=fallback)
+
+    volatility = float(close.pct_change().std())
+    risk = "LOW" if volatility < 0.015 else "MODERATE" if volatility < 0.03 else "HIGH"
+
+    return {
+        "data": daily_data,
+        "pred": pred,
+        "full_pred": full_pred,
+        "y_test": y_test,
+        "future_price": future_price,
+        "current_price": live_price,
+        "accuracy": accuracy,
+        "risk": risk
+    }
 
 def get_live_price(ticker: str, fallback_price: float = None) -> float:
     """
