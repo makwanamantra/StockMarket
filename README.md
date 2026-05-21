@@ -1,4 +1,7 @@
 # AI Stock Advisor Pro
+## Hosted Version
+You can try the live application here: [AI Stock Advisor Pro](https://stockmarket-av06.onrender.com/)
+
 AI Stock Advisor Pro is a Streamlit web application that analyzes stocks using technical indicators and machine learning. It provides live price tracking, predictions, portfolio management, and investment simulations.
 
 # Features
